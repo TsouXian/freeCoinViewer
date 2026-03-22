@@ -515,7 +515,7 @@ function tfetch(url,timeout){
 var COINBASE='https://api.exchange.coinbase.com';
 var KRAKEN='https://api.kraken.com/0/public';
 var CB_GRAN={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':21600,'6h':21600,'1d':86400};
-var KR_INT={'1m':1,'3m':3,'5m':5,'15m':15,'30m':30,'1h':60,'2h':120,'4h':240,'6h':360,'12h':720,'1d':1440,'3d':4320,'1w':10080};
+var KR_INT={'1m':1,'3m':5,'5m':5,'15m':15,'30m':30,'1h':60,'2h':240,'4h':240,'6h':60,'12h':240,'1d':1440,'3d':10080,'1w':10080};
 var coin='BTC',iv='1h';
 
 // ── All supported coins ──
@@ -879,15 +879,8 @@ function fetchCoinbase(c,interval){
 function fetchKraken(c,interval){
   log('[Kraken] 備援...','warn');
   var krPair=getCoinKR(c)||c+'USD';
-  var krInterval=KR_INT[interval]||KR_INT_EX[interval]||60;
-  var baseUrl=KRAKEN+'/OHLC?pair='+krPair+'&interval='+krInterval;
-  // Try direct first, then proxy fallbacks
-  var isLocal=window.location.protocol==='file:';
-  var url=baseUrl; // GitHub Pages: direct access works
-  if(isLocal){
-    // Local file:// needs proxy - try multiple
-    url='https://api.allorigins.win/raw?url='+encodeURIComponent(baseUrl);
-  }
+  var krInterval=KR_INT_EX[interval]||KR_INT[interval]||60;
+  var url=KRAKEN+'/OHLC?pair='+krPair+'&interval='+krInterval;
   return tfetch(url,12000).then(function(raw){
     if(raw.error&&raw.error.length)throw new Error(raw.error[0]);
     var key=Object.keys(raw.result).filter(function(k){return k!=='last';})[0];
@@ -2317,11 +2310,18 @@ function saveFavs() {
 }
 function isFav(sym) { return _favCoins.indexOf(sym) !== -1; }
 
-var ALL_IVS=[["1m", "1\u5206", "1m"], ["3m", "3\u5206", "3m"], ["5m", "5\u5206", "5m"], ["15m", "15\u5206", "15m"], ["30m", "30\u5206", "30m"], ["1h", "1\u6642", "1H"], ["2h", "2\u6642", "2H"], ["4h", "4\u6642", "4H"], ["6h", "6\u6642", "6H"], ["12h", "12\u6642", "12H"], ["1d", "\u65e5\u7dda", "1D"], ["3d", "3\u65e5", "3D"], ["1w", "\u9031\u7dda", "1W"]];
+var ALL_IVS=[
+  ['1m','1分','1m',true],['5m','5分','5m',true],['15m','15分','15m',true],
+  ['1h','1時','1H',true],['4h','4時','4H',true],['6h','6時','6H',true],
+  ['1d','日線','1D',true],['3d','3日','3D',false],['1w','週線','1W',false],
+  ['3m','3分','3m',false],['30m','30分','30m',false],['2h','2時','2H',false],
+  ['12h','12時','12H',false],
+]; // [sym, zh, lbl, coinbaseSupported]
+
 // Coinbase only supports: 60,300,900,3600,21600,86400
 // Map unsupported intervals to null (use Kraken instead)
-var CB_GRAN_EX={"1m":60,"3m":null,"5m":300,"15m":900,"30m":null,"1h":3600,"2h":null,"4h":21600,"6h":21600,"12h":null,"1d":86400,"3d":null,"1w":null};
-var KR_INT_EX={"1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "2h": 120, "4h": 240, "6h": 360, "12h": 720, "1d": 1440, "3d": 4320, "1w": 10080};
+var CB_GRAN_EX={'1m':60,'3m':null,'5m':300,'15m':900,'30m':null,'1h':3600,'2h':null,'4h':21600,'6h':21600,'12h':null,'1d':86400,'3d':null,'1w':null};
+var KR_INT_EX={"1m":1,"3m":5,"5m":5,"15m":15,"30m":30,"1h":60,"2h":240,"4h":240,"6h":60,"12h":240,"1d":1440,"3d":10080,"1w":10080};
 
 // ═══ INTERVAL DROPDOWN ═══════════════════════════════
 var _favIvs   = ['15m','1h','4h','1d'];
@@ -2356,21 +2356,23 @@ function renderIvList() {
 }
 
 function ivItemHTML(x) {
-  var s=x[0],zh=x[1],lbl=x[2];
+  var s=x[0],zh=x[1],lbl=x[2],supported=x[3]!==false;
   var active=iv===s?' active':'';
   var fav=isIvFav(s);
-  var oc1="selectIv('"+s+"','"+lbl+"')";
+  var oc1=supported?"selectIv('"+s+"','"+lbl+"')":'';
   var oc2="event.stopPropagation();toggleIvFav('"+s+"',event)";
-  return '<div class="iv-item'+active+'" onclick="'+oc1+'">' +
+  var dimStyle=supported?'':'opacity:.4;cursor:not-allowed;';
+  var hint=supported?'':'<span style="font-size:9px;color:var(--t3);"> GitHub</span>';
+  return '<div class="iv-item'+active+'" onclick="'+oc1+'" style="'+dimStyle+'">' +
     '<span class="iv-lbl">'+lbl+'</span>' +
-    '<span class="iv-zh">'+zh+'</span>' +
-    '<span class="iv-star'+(fav?' fav':'')+'" onclick="'+oc2+'">'+(fav?'★':'☆')+'</span>' +
+    '<span class="iv-zh">'+zh+hint+'</span>' +
+    (supported?'<span class="iv-star'+(fav?' fav':'')+'" onclick="'+oc2+'">'+(fav?'★':'☆')+'</span>':'') +
     '</div>';
 }
 
 function selectIv(s, lbl) {
+  if(!s) return; // disabled item
   iv = s;
-  // Update CB_GRAN and KR_INT
   if(CB_GRAN_EX[s]) CB_GRAN[s] = CB_GRAN_EX[s];
   if(KR_INT_EX[s])  KR_INT[s]  = KR_INT_EX[s];
   var btnLbl=document.getElementById('iv-btn-label');
