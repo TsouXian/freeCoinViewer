@@ -1064,13 +1064,33 @@ function drawMain(){
 
   ctx.fillStyle=C_.bg;ctx.fillRect(0,0,W,H);
 
-  // Grid lines
+  // Grid lines - 整數關口對齊 (auto nice step)
   ctx.strokeStyle=C_.grid;ctx.lineWidth=0.5;
-  var steps=6;
-  for(var gi=0;gi<=steps;gi++){var gp=minP+(maxP-minP)*gi/steps;var gy=py(gp);ctx.beginPath();ctx.moveTo(PAD.l,gy);ctx.lineTo(W-PAD.r+4,gy);ctx.stroke();ctx.fillStyle=C_.tx;ctx.font=Math.round(9*_fontSize/100)+'px JetBrains Mono';ctx.textAlign='left';ctx.fillText(gp>1000?Math.round(gp).toLocaleString():gp.toFixed(4),W-PAD.r+6,gy+3);}
+  var priceRange=maxP-minP;
+  // Pick a nice round step: aim for ~6 lines
+  var rawStep=priceRange/6;
+  var mag=Math.pow(10,Math.floor(Math.log10(rawStep)));
+  var niceSteps=[1,2,2.5,5,10];
+  var niceStep=mag;
+  for(var ni=0;ni<niceSteps.length;ni++){
+    var candidate=niceSteps[ni]*mag;
+    if(priceRange/candidate<=8){niceStep=candidate;break;}
+  }
+  // First grid line above minP
+  var firstGrid=Math.ceil(minP/niceStep)*niceStep;
+  ctx.font=Math.round(9*_fontSize/100)+'px JetBrains Mono';
+  for(var gp=firstGrid;gp<=maxP+niceStep;gp+=niceStep){
+    var gy=py(gp);
+    if(gy<PAD.t-2||gy>H-PAD.b+2)continue;
+    ctx.strokeStyle=C_.grid;ctx.lineWidth=0.5;
+    ctx.beginPath();ctx.moveTo(PAD.l,gy);ctx.lineTo(W-PAD.r+4,gy);ctx.stroke();
+    ctx.fillStyle=C_.tx;ctx.textAlign='left';
+    var label=gp>=1000?Math.round(gp).toLocaleString():gp>=1?gp.toFixed(2):gp.toFixed(4);
+    ctx.fillText(label,W-PAD.r+6,gy+3);
+  }
   // Vertical grid every ~8 bars
   var vstep=Math.max(1,Math.round(span/8));
-  for(var vi=Math.ceil(VIEW.start/vstep)*vstep;vi<VIEW.end;vi+=vstep){var vx=pxi(vi);ctx.beginPath();ctx.moveTo(vx,PAD.t);ctx.lineTo(vx,H-PAD.b);ctx.stroke();}
+  for(var vi=Math.ceil(VIEW.start/vstep)*vstep;vi<VIEW.end;vi+=vstep){var vx=pxi(vi);ctx.strokeStyle=C_.grid;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(vx,PAD.t);ctx.lineTo(vx,H-PAD.b);ctx.stroke();}
 
   // BB fill
   if(SHOW.bb){
@@ -1477,7 +1497,19 @@ function tryWS_Coinbase() {
           if (t && t.price) {
             var price = parseFloat(t.price);
             var dp = price > 1000 ? 2 : 4;
+            // Update header price
             document.getElementById('cur').innerHTML = '$' + fmt(price, dp) + '<span id="ws-dot" class="live"></span>';
+            // Update last candle close price in real-time
+            if (gCandles.length > 0) {
+              var last = gCandles[gCandles.length - 1];
+              last.close = price;
+              if (price > last.high) last.high = price;
+              if (price < last.low)  last.low  = price;
+              // Redraw main chart only (lightweight, no full recalc)
+              drawMain();
+            }
+            // Check price alerts
+            checkAlerts(price);
           }
         }
       } catch(ex) {}
