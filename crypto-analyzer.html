@@ -1,10 +1,4 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Crypto Analyzer</title>
-  <style><!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -454,7 +448,8 @@ var gCandles=[],gAnalysis=null;
 // view state: indices into gCandles array (+ pred extension)
 var VIEW={start:0,end:0,dragging:false,dragStartX:0,dragStartView:0};
 var MIN_BARS=10;
-var YZOOM={vol:1.0,rsi:1.0,macd:1.0}; // Y-axis zoom for sub-charts
+var YZOOM={vol:1.0,rsi:1.0,macd:1.0};
+var _loadedSettings = null; // Y-axis zoom for sub-charts
 
 // ═══ DATA FETCH ═════════════════════════════════════
 // ═══ ORDERBOOK ═══════════════════════════════════════
@@ -633,7 +628,9 @@ function getMTFConfluence(cur, mtf) {
 function fetchCoinbase(c,interval){
   log('[Coinbase] 建立請求...','warn');
   var gran=CB_GRAN[interval]||3600;
-  var end=new Date(),start=new Date(end.getTime()-350*gran*1000);
+  // Coinbase max 300 candles per request
+  var limit=Math.min(300,350);
+  var end=new Date(),start=new Date(end.getTime()-limit*gran*1000);
   var url=COINBASE+'/products/'+CB_PROD[c]+'/candles?granularity='+gran+'&start='+start.toISOString()+'&end='+end.toISOString();
   return tfetch(url).then(function(raw){
     if(!Array.isArray(raw)||raw.length===0)throw new Error('空資料');
@@ -2152,74 +2149,5 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 </script>
-</body>
-</html>
-    body { font-family: Arial, sans-serif; margin: 16px; }
-    h1 { color: #1a5a96; }
-    #coin-list { margin-top: 12px; }
-    .coin { padding: 8px; margin: 6px 0; border: 1px solid #ccc; border-radius: 6px; }
-    .coin-symbol { font-weight: 700; }
-    #error { color: #c00; }
-  </style>
-</head>
-<body>
-  <h1>Crypto Analyzer</h1>
-  <p>輸入幣別查詢行情（使用 CoinGecko 公開 API）</p>
-
-  <div>
-    <label for="symbol">Symbol / ID：</label>
-    <input id="symbol" type="text" placeholder="例如 bitcoin, ethereum" />
-    <button id="searchBtn">查詢</button>
-  </div>
-
-  <div id="error"></div>
-  <div id="coin-list"></div>
-
-  <script>
-  const searchBtn = document.getElementById('searchBtn');
-  const symbolInput = document.getElementById('symbol');
-  const coinList = document.getElementById('coin-list');
-  const errorBox = document.getElementById('error');
-
-  async function fetchCryptoData(id){
-    const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`無法取得 ${id} 的資料：${resp.status}`);
-    return resp.json();
-  }
-
-  function renderCoinInfo(data){
-    const price = data.market_data?.current_price?.usd ?? 'n/a';
-    const change24h = data.market_data?.price_change_percentage_24h_in_currency?.usd ?? 'n/a';
-
-    const html = `<div class="coin">
-      <div class="coin-symbol">${data.name} (${data.symbol.toUpperCase()})</div>
-      <div>價格（USD）: <strong>$${price}</strong></div>
-      <div>24h 變動: <strong>${change24h}%</strong></div>
-      <div>排名: ${data.market_cap_rank || 'n/a'}</div>
-    </div>`;
-
-    return html;
-  }
-
-  searchBtn.addEventListener('click', async () => {
-    const id = symbolInput.value.trim().toLowerCase();
-    if (!id) {
-      errorBox.textContent = '請輸入幣別 ID。';
-      return;
-    }
-
-    errorBox.textContent = '';
-    coinList.innerHTML = '讀取中...';
-
-    try {
-      const data = await fetchCryptoData(id);
-      coinList.innerHTML = renderCoinInfo(data);
-    } catch (e) {
-      coinList.innerHTML = '';
-      errorBox.textContent = e.message;
-    }
-  });
-  </script>
 </body>
 </html>
