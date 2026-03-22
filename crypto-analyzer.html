@@ -174,6 +174,19 @@ canvas{display:block;cursor:crosshair;}
 #btn-save-data:hover{background:var(--bg3);}
 #btn-load-file{display:none;}
 
+/* Gist Token Modal */
+#gist-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.7);align-items:center;justify-content:center;}
+#gist-modal.open{display:flex;}
+#gist-box{background:var(--bg2);border:1px solid var(--bd);border-radius:10px;padding:24px;width:360px;max-width:90vw;}
+#gist-box h3{font-size:14px;font-weight:800;color:var(--tx);margin-bottom:8px;}
+#gist-box p{font-size:11px;color:var(--t2);margin-bottom:14px;line-height:1.6;}
+#gist-token-input{width:100%;background:var(--bg3);border:1px solid var(--bd);border-radius:5px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;padding:8px 10px;outline:none;margin-bottom:10px;}
+#gist-token-input:focus{border-color:var(--blue);}
+.gist-btn{padding:6px 16px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:700;}
+#gist-save-btn{background:var(--blue);color:#fff;}
+#gist-cancel-btn{background:var(--bg3);color:var(--t2);margin-left:8px;}
+#gist-status{font-size:10px;color:var(--t3);margin-top:8px;}
+
 /* Alert */
 #alert-panel{position:fixed;top:56px;right:12px;z-index:8888;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
 .alert-toast{background:var(--bg2);border:1px solid var(--yellow);border-radius:6px;padding:8px 12px;
@@ -468,6 +481,8 @@ canvas{display:block;cursor:crosshair;}
         <span class="tog-lbl">警報</span>
         <input id="alert-input" type="number" placeholder="價格..." step="100"/>
         <button id="alert-btn" onclick="setAlert()">🔔 設定</button>
+        <div class="tsep"></div>
+        <button id="gist-btn" onclick="openGistModal()" style="background:var(--bg3);border:1px solid var(--bd);color:var(--t2);padding:2px 7px;border-radius:3px;cursor:pointer;font-size:8px;font-family:'JetBrains Mono',monospace;font-weight:700;" title="設定GitHub Token用於雲端同步">🔑 Gist同步</button>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div class="tog-hint">滾輪縮放 · 左鍵拖拉平移</div>
@@ -479,6 +494,20 @@ canvas{display:block;cursor:crosshair;}
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Gist Token Modal -->
+<div id="gist-modal">
+  <div id="gist-box">
+    <h3>🔑 設定 GitHub Token</h3>
+    <p>輸入 GitHub Personal Access Token（需要 <code>gist</code> 權限），用於跨裝置同步 K 線資料。<br/>Token 只存在你的瀏覽器，不會傳送到其他地方。</p>
+    <input id="gist-token-input" type="password" placeholder="ghp_xxxxxxxxxxxxxxxx" autocomplete="off"/>
+    <div>
+      <button class="gist-btn" id="gist-save-btn" onclick="saveGistToken()">儲存</button>
+      <button class="gist-btn" id="gist-cancel-btn" onclick="closeGistModal()">取消</button>
+    </div>
+    <div id="gist-status"></div>
   </div>
 </div>
 
@@ -3062,6 +3091,11 @@ function scheduleSave(){
 async function autoLoadFile(){
   if(_autoLoadChecked)return;
   _autoLoadChecked=true;
+  // Try Gist first if token exists
+  if(_gistToken){
+    var loaded=await loadFromGist();
+    if(loaded) return;
+  }
 
   if(supportsFileAPI()&&localStorage.getItem('cl_fsh')){
     // Try to auto-read from stored file handle (no dialog needed!)
@@ -3232,6 +3266,8 @@ function prefetchAllIntervals(c) {
       var totalBars=Object.keys(_memCache).reduce(function(s,k){return s+_memCache[k].candles.length;},0);
       log('[預載] 完成! '+completed+'成功 '+failed+'失敗 共'+totalBars+'根 K線','ok');
       scheduleSave();
+      // Also save to Gist if token set
+      if(_gistToken) setTimeout(saveToGist, 3000);
       return;
     }
 
@@ -3312,6 +3348,190 @@ function fetchCoinbaseAll(c, interval, gran, targetBars) {
   }
 
   return fetchBatchAll(Math.floor(Date.now()/1000), []);
+}
+
+// ═══ GITHUB GIST SYNC ═══════════════════════════════
+var GIST_TOKEN_KEY = 'cl_gist_token';
+var GIST_ID_KEY    = 'cl_gist_id';
+var GIST_FILENAME  = 'CryptoLens_data.json';
+var _gistToken     = null;
+var _gistId        = null;
+
+function loadGistConfig(){
+  try{
+    _gistToken = localStorage.getItem(GIST_TOKEN_KEY)||null;
+    _gistId    = localStorage.getItem(GIST_ID_KEY)||null;
+  }catch(e){}
+  updateGistBtn();
+}
+
+function updateGistBtn(){
+  var btn=document.getElementById('gist-btn');
+  if(!btn)return;
+  if(_gistToken){
+    btn.style.color='var(--green)';
+    btn.textContent='🔑 已連結';
+  } else {
+    btn.style.color='var(--t2)';
+    btn.textContent='🔑 Gist同步';
+  }
+}
+
+function openGistModal(){
+  var modal=document.getElementById('gist-modal');
+  if(!modal)return;
+  var inp=document.getElementById('gist-token-input');
+  if(inp&&_gistToken) inp.value=_gistToken;
+  document.getElementById('gist-status').textContent=
+    _gistId?'已連結 Gist ID: '+_gistId:'尚未設定';
+  modal.classList.add('open');
+}
+function closeGistModal(){
+  var modal=document.getElementById('gist-modal');
+  if(modal)modal.classList.remove('open');
+}
+
+function saveGistToken(){
+  var inp=document.getElementById('gist-token-input');
+  if(!inp||!inp.value.trim()){
+    document.getElementById('gist-status').textContent='❌ 請輸入 Token';
+    return;
+  }
+  _gistToken=inp.value.trim();
+  try{localStorage.setItem(GIST_TOKEN_KEY,_gistToken);}catch(e){}
+  document.getElementById('gist-status').textContent='✅ Token 已儲存，測試連線中...';
+  // Test token by fetching user info
+  fetch('https://api.github.com/user',{
+    headers:{'Authorization':'token '+_gistToken,'Accept':'application/vnd.github.v3+json'}
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.login){
+      document.getElementById('gist-status').textContent='✅ 已連結 GitHub: '+d.login;
+      updateGistBtn();
+      // Auto-load from Gist or auto-save
+      setTimeout(function(){
+        autoGistSync();
+        closeGistModal();
+      },1500);
+    } else {
+      document.getElementById('gist-status').textContent='❌ Token 無效，請確認 gist 權限';
+    }
+  }).catch(function(){
+    document.getElementById('gist-status').textContent='❌ 連線失敗，請確認 Token';
+  });
+}
+
+// Find existing CryptoLens gist
+async function findGist(){
+  if(_gistId) return _gistId;
+  try{
+    var r=await fetch('https://api.github.com/gists?per_page=100',{
+      headers:{'Authorization':'token '+_gistToken,'Accept':'application/vnd.github.v3+json'}
+    });
+    var gists=await r.json();
+    if(!Array.isArray(gists)) return null;
+    var found=gists.find(function(g){return g.files&&g.files[GIST_FILENAME];});
+    if(found){
+      _gistId=found.id;
+      try{localStorage.setItem(GIST_ID_KEY,_gistId);}catch(e){}
+      return _gistId;
+    }
+  }catch(e){}
+  return null;
+}
+
+// Save data to Gist (create or update)
+async function saveToGist(){
+  if(!_gistToken){log('[Gist] 未設定 Token','warn');return;}
+  var data=await collectAllData();
+  var total=Object.keys(data.cache).length;
+  if(total===0){log('[Gist] 沒有資料','warn');return;}
+
+  var totalBars=Object.keys(data.cache).reduce(function(s,k){return s+data.cache[k].candles.length;},0);
+  var content=JSON.stringify(data);
+  log('[Gist] 上傳 '+total+' 組 '+totalBars+'根 K線...','info');
+
+  try{
+    var gistId=await findGist();
+    var method=gistId?'PATCH':'POST';
+    var url=gistId?
+      'https://api.github.com/gists/'+gistId:
+      'https://api.github.com/gists';
+
+    var body={
+      description:'CryptoLens K-Line Data',
+      public:false,
+      files:{}
+    };
+    body.files[GIST_FILENAME]={content:content};
+
+    var r=await fetch(url,{
+      method:method,
+      headers:{
+        'Authorization':'token '+_gistToken,
+        'Accept':'application/vnd.github.v3+json',
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify(body)
+    });
+    var result=await r.json();
+    if(result.id){
+      _gistId=result.id;
+      try{localStorage.setItem(GIST_ID_KEY,_gistId);}catch(e){}
+      log('[Gist] ✅ 已儲存到 Gist ('+result.id.slice(0,8)+'...)','ok');
+    } else {
+      log('[Gist] ❌ 儲存失敗: '+(result.message||'unknown'),'err');
+    }
+  }catch(e){
+    log('[Gist] ❌ 上傳失敗: '+e.message,'err');
+  }
+}
+
+// Load data from Gist
+async function loadFromGist(){
+  if(!_gistToken){return false;}
+  try{
+    var gistId=await findGist();
+    if(!gistId){log('[Gist] 找不到已存的資料','info');return false;}
+
+    var r=await fetch('https://api.github.com/gists/'+gistId,{
+      headers:{'Authorization':'token '+_gistToken,'Accept':'application/vnd.github.v3+json'}
+    });
+    var gist=await r.json();
+    var fileObj=gist.files&&gist.files[GIST_FILENAME];
+    if(!fileObj){log('[Gist] 檔案不存在','warn');return false;}
+
+    // Get raw content
+    var raw=fileObj.content;
+    if(!raw&&fileObj.raw_url){
+      var r2=await fetch(fileObj.raw_url);
+      raw=await r2.text();
+    }
+    if(!raw){return false;}
+
+    var data=JSON.parse(raw);
+    _applyLoadedData(data);
+    log('[Gist] ✅ 從雲端載入資料','ok');
+    return true;
+  }catch(e){
+    log('[Gist] ❌ 載入失敗: '+e.message,'err');
+    return false;
+  }
+}
+
+// Auto sync: load if no local cache, else save
+async function autoGistSync(){
+  if(!_gistToken) return;
+  var key=cacheKey(coin,iv);
+  var hasLocal=_memCache[key]&&_memCache[key].candles.length>=30;
+  if(!hasLocal){
+    log('[Gist] 嘗試從雲端載入...','info');
+    var loaded=await loadFromGist();
+    if(!loaded) loadData(true);
+  } else {
+    // Has local data - save to gist in background after prefetch
+    log('[Gist] 有本地資料，背景上傳至 Gist...','info');
+    saveToGist();
+  }
 }
 
 // ═══ COLLAPSIBLE SECTIONS ══════════════════════════
@@ -3509,6 +3729,7 @@ function applyPostSettings(s){
 document.addEventListener('DOMContentLoaded',function(){
   loadFavs();
   loadFavIvs();
+  loadGistConfig();
   autoLoadFile(); // auto-load CryptoLens_data.json
   // Validate current iv
   if(ALL_IVS&&!ALL_IVS.find(function(x){return x[0]===iv;})){iv='1h';}
