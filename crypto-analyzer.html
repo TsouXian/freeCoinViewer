@@ -100,6 +100,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'Syne',sa
 #dca{height:95px;flex-shrink:0;border-top:1px solid var(--bd);}
 .clbl{position:absolute;top:4px;left:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);pointer-events:none;font-family:'JetBrains Mono',monospace;z-index:3;}
 canvas{display:block;cursor:crosshair;}
+#mc-overlay{position:absolute;top:0;left:0;pointer-events:none;z-index:4;}
 
 /* Zoom hint */
 
@@ -167,6 +168,12 @@ canvas{display:block;cursor:crosshair;}
 #ws-dot{width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;margin-left:4px;vertical-align:middle;}
 #ws-dot.live{background:#3fb950;animation:wsblink .8s ease-in-out infinite;}
 @keyframes wsblink{0%,100%{opacity:1}50%{opacity:.3}}
+/* Save/Load Data */
+#saveload-wrap{display:flex;gap:4px;align-items:center;}
+#btn-save-data{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;border:1px solid var(--bd);background:transparent;color:var(--green);cursor:pointer;font-size:11px;font-family:'Syne',sans-serif;}
+#btn-save-data:hover{background:var(--bg3);}
+#btn-load-file{display:none;}
+
 /* Alert */
 #alert-panel{position:fixed;top:56px;right:12px;z-index:8888;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
 .alert-toast{background:var(--bg2);border:1px solid var(--yellow);border-radius:6px;padding:8px 12px;
@@ -279,7 +286,20 @@ canvas{display:block;cursor:crosshair;}
   <div id="chg" class="neu">--</div>
   <div id="utxt" style="display:none">--</div>
   <div id="dot"></div>
-  <button id="rbtn" onclick="loadData()">
+  <div id="saveload-wrap">
+    <button id="btn-save-data" onclick="saveDataToFile()" title="將K線資料下載為JSON">
+      <span id="btn-save-lbl">💾 儲存資料</span>
+    </button>
+    <input id="btn-load-file" type="file" accept=".json" onchange="loadDataFromFile(this)" style="display:none"/>
+    <button id="btn-load-data" onclick="document.getElementById('btn-load-file').click()" title="載入本機JSON資料檔案" style="display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:4px;border:1px solid var(--bd);background:transparent;color:var(--blue);cursor:pointer;font-size:11px;font-family:'Syne',sans-serif;">
+      📂 載入資料
+    </button>
+  </div>
+  <button id="rbtn2" onclick="refetchData()" <button id="rbtn2" style="display:none" onclick="refetchData()" title="清除快取，重新從交易所抓取1年資料" style="display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;border:1px solid var(--bd);background:transparent;color:var(--orange);cursor:pointer;font-size:11px;margin-right:2px;">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+    重新抓資料
+  </button>
+  <button id="rbtn" onclick="loadData(false)">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
     更新指標
   </button>
@@ -290,10 +310,11 @@ canvas{display:block;cursor:crosshair;}
   <div id="side-toggle" onclick="toggleSide()" title="隱藏/顯示側欄">◀</div>
   <div id="charts">
     <div class="carea" id="mca">
-      <div class="clbl">K線 · MA · BB · 預測</div>
+      <div class="clbl">K線 · MA · BB · 研判</div>
       <div id="zoom-info"></div>
 
       <canvas id="mc"></canvas>
+      <canvas id="mc-overlay"></canvas>
       <div id="xhair-tooltip"></div>
     </div>
     <div class="resize-handle" id="rh-vol" data-target="vca"></div>
@@ -370,7 +391,7 @@ canvas{display:block;cursor:crosshair;}
     </div>
 
     <div class="sec" id="sec-pred">
-      <div class="stitle" onclick="toggleSec('sec-pred')">未來 12-24H 預測<span class="sarr">▾</span></div>
+      <div class="stitle" onclick="toggleSec('sec-pred')">多空研判<span class="sarr">▾</span></div>
       <div class="sec-body" id="sec-pred-body" style="max-height:2000px;">
       <!-- 方向判斷大標題 -->
       <div id="pdir" class="pdir neu" style="margin-bottom:8px;">⟳ 分析中...</div>
@@ -439,7 +460,7 @@ canvas{display:block;cursor:crosshair;}
       <div class="tog-row">
         <span class="tog-lbl">副圖</span>
         <button class="itog" id="tog-bb"     onclick="togInd('bb',this)"    ><span class="ic" style="background:#bc8cff;"></span>BB</button>
-        <button class="itog" id="tog-pred"   onclick="togInd('pred',this)"  ><span class="ic" style="background:rgba(255,255,255,.6);"></span>預測</button>
+        <button class="itog" id="tog-pred"   onclick="togInd('pred',this)"  ><span class="ic" style="background:rgba(255,255,255,.6);"></span>研判</button>
         <button class="itog" id="tog-rsi"    onclick="togInd('rsi',this)"   ><span class="ic" style="background:#bc8cff;"></span>RSI</button>
         <button class="itog" id="tog-macd"   onclick="togInd('macd',this)"  ><span class="ic" style="background:#2196f3;"></span>MACD</button>
         <button id="tog-log-btn" onclick="togLog()">🔌 Log</button>
@@ -515,6 +536,7 @@ function tfetch(url,timeout){
 var COINBASE='https://api.exchange.coinbase.com';
 var KRAKEN='https://api.kraken.com/0/public';
 var CB_GRAN={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':21600,'6h':21600,'1d':86400};
+
 var CB_GRAN_EX={'1m':60,'3m':null,'5m':300,'15m':900,'30m':null,'1h':3600,'2h':null,'4h':21600,'6h':21600,'12h':null,'1d':86400,'1w':null};
 var KR_INT={'1m':1,'3m':5,'5m':5,'15m':15,'30m':30,'1h':60,'2h':240,'4h':240,'6h':60,'12h':240,'1d':1440,'1w':10080};
 var coin='BTC',iv='1h';
@@ -654,20 +676,41 @@ function selectCoin(el){
     if(enEl)enEl.textContent=cObj.name;
   }
   closeCoinDropdown();
-  // 立刻清空舊資料，避免切換時顯示舊幣的數據
-  gCandles=[];gAnalysis=null;_mtfData=null;
+  gAnalysis=null;_mtfData=null;
   VIEW.start=0;VIEW.end=0;
   YZOOM.vol=1.0;YZOOM.rsi=1.0;YZOOM.macd=1.0;YZOOM.main=1.0;
-  ['mc','rc','dc','vc'].forEach(function(id){
-    var cv=document.getElementById(id);if(!cv)return;
-    cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
-  });
-  var curEl=document.getElementById('cur');
-  if(curEl)curEl.innerHTML='--<span id="ws-dot"></span>';
-  var chgEl=document.getElementById('chg');
-  if(chgEl){chgEl.textContent='--';chgEl.className='';}
   saveSettings();
   if(_ws){_ws.close();_ws=null;_wsSymbol='';}
+
+  // 即時從記憶體快取顯示
+  var key=cacheKey(sym,iv);
+  if(_memCache[key]&&_memCache[key].candles.length>=30){
+    gCandles=_memCache[key].candles;
+    try{gAnalysis=analyze(gCandles);}catch(e){}
+    if(gAnalysis){
+      VIEW.start=Math.max(0,gCandles.length-80);
+      VIEW.end=gCandles.length+(gAnalysis.pred?gAnalysis.pred.c24:5);
+      redraw();drawGauge(gAnalysis.composite);drawPred(gAnalysis);drawSignals(gAnalysis.signals);
+    }
+    log('[切換] '+sym+' 快取命中 '+gCandles.length+'根','ok');
+    // 背景補最新資料
+    fetchStats(sym).then(function(stats){
+      if(stats&&parseFloat(stats.last)>0){
+        var price=parseFloat(stats.last),open24=parseFloat(stats.open),chg=open24?(price-open24)/open24*100:0;
+        var dp=price>1000?2:4;
+        var curEl=document.getElementById('cur');
+        if(curEl)curEl.innerHTML='$'+fmt(price,dp)+'<span id="ws-dot" class="live"></span>';
+        var chgEl=document.getElementById('chg');
+        if(chgEl){chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';chgEl.className=chg>=0?'up':'dn';}
+      }
+    }).catch(function(){});
+    startWS();
+    setStatus(false);
+    return;
+  }
+
+  // 無快取：完整載入
+  gCandles=[];
   loadData();
 }
 function toggleFav(sym) {
@@ -688,6 +731,186 @@ var gCandles=[],gAnalysis=null;
 var VIEW={start:0,end:0,dragging:false,dragStartX:0,dragStartView:0};
 var MIN_BARS=10;
 var YZOOM={vol:1.0,rsi:1.0,macd:1.0,main:1.0};
+// ═══ CANDLE CACHE (IndexedDB - 大容量) ══════════════
+var _memCache = {}; // 記憶體快取
+var _idb = null;    // IndexedDB instance
+var IDB_NAME = 'CryptoLensCandles';
+var IDB_STORE = 'candles';
+var IDB_VER = 1;
+
+function cacheKey(c, interval) { return c + '_' + interval; }
+
+// Open IndexedDB
+function openCandleDB(cb) {
+  if (_idb) { cb(_idb); return; }
+  // Timeout: if IDB takes >1s, skip it
+  var done=false, timer=setTimeout(function(){
+    if(!done){done=true;log('[IDB] 逾時，跳過快取','warn');cb(null);}
+  },1000);
+  try {
+    var req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = function(e) {
+      clearTimeout(timer);
+      if(done) return;
+      done=true;
+      _idb = e.target.result;
+      cb(_idb);
+    };
+    req.onerror = function() {
+      clearTimeout(timer);
+      if(!done){done=true;cb(null);}
+    };
+  } catch(e) {
+    clearTimeout(timer);
+    if(!done){done=true;cb(null);}
+  }
+}
+
+// Save candles to IndexedDB (async, fire-and-forget)
+function saveCandles(c, interval, candles) {
+  var key = cacheKey(c, interval);
+  _memCache[key] = { candles: candles, ts: Date.now() };
+  // sessionStorage: store candles for quick F5 reload
+  try {
+    sessionStorage.setItem('cl_ss_'+key, JSON.stringify({candles:candles,ts:Date.now(),full:candles.length}));
+  } catch(e) {
+    // If too large, store last 1000
+    try{sessionStorage.setItem('cl_ss_'+key,JSON.stringify({candles:candles.slice(-1000),ts:Date.now(),full:candles.length}));}catch(e2){}
+  }
+  // IndexedDB: store full dataset
+  openCandleDB(function(db) {
+    if (!db) { log('[快取] IndexedDB 不可用，僅session快取','warn'); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      var store = tx.objectStore(IDB_STORE);
+      store.put({ key: key, candles: candles, ts: Date.now() });
+      tx.oncomplete = function() {
+        log('[快取] IDB已存 '+key+' '+candles.length+'根','ok');
+      };
+    } catch(e) { log('[快取] IDB儲存失敗: '+e.message,'warn'); }
+  });
+}
+
+// Load candles - returns Promise
+function loadCachedCandles(c, interval) {
+  var key = cacheKey(c, interval);
+  // 1. Memory cache (instant, survives within page)
+  if (_memCache[key]) {
+    log('[快取] 記憶體命中 '+key+' '+_memCache[key].candles.length+'根','ok');
+    return Promise.resolve(_memCache[key].candles);
+  }
+  // 2. sessionStorage (instant, survives F5)
+  try {
+    var ss = sessionStorage.getItem('cl_ss_'+key);
+    if (ss) {
+      var sd = JSON.parse(ss);
+      if (sd && sd.candles && sd.candles.length >= 30) {
+        log('[快取] Session命中 '+key+' '+sd.candles.length+'根','ok');
+        _memCache[key] = {candles: sd.candles, ts: sd.ts};
+        // IMMEDIATELY draw chart with cached data
+        gCandles = sd.candles;
+        try {
+          gAnalysis = analyze(gCandles);
+          if(VIEW.start===0||VIEW.end===0){
+            VIEW.start = Math.max(0, gCandles.length-80);
+            VIEW.end   = gCandles.length + (gAnalysis.pred?gAnalysis.pred.c24:5);
+          }
+          redraw();
+          drawGauge(gAnalysis.composite);
+          drawPred(gAnalysis);
+          drawSignals(gAnalysis.signals);
+          setStatus(false);
+          log('[快取] 快速顯示完成','ok');
+        } catch(e) { log('[快取] 分析失敗:'+e.message,'err'); }
+        // Background: load full IDB data
+        setTimeout(function(){
+          loadFromIDB(key, function(full){
+            if(full && full.length > gCandles.length && coin+'_'+iv===key){
+              gCandles = full;
+              _memCache[key] = {candles: full, ts: Date.now()};
+              log('[快取] IDB補齊 '+full.length+'根','ok');
+              try{gAnalysis=analyze(gCandles);}catch(e){}
+              VIEW.end = gCandles.length+(gAnalysis&&gAnalysis.pred?gAnalysis.pred.c24:5);
+              redraw();
+            }
+          });
+        }, 300);
+        return Promise.resolve(sd.candles);
+      }
+    }
+  } catch(e) {}
+  // 3. IndexedDB (async)
+  return new Promise(function(resolve) {
+    openCandleDB(function(db) {
+      if (!db) { resolve(null); return; }
+      try {
+        var tx = db.transaction(IDB_STORE, 'readonly');
+        var req = tx.objectStore(IDB_STORE).get(key);
+        req.onsuccess = function(e) {
+          var d = e.target.result;
+          if (!d || !d.candles || !d.candles.length) { resolve(null); return; }
+          _memCache[key] = { candles: d.candles, ts: d.ts };
+          var age = Math.round((Date.now()-d.ts)/60000);
+          log('[快取] IndexedDB 命中 '+key+' '+d.candles.length+'根 ('+age+'分鐘前)','ok');
+          resolve(d.candles);
+        };
+        req.onerror = function() { resolve(null); };
+      } catch(e) { resolve(null); }
+    });
+  });
+}
+
+// Clear candle cache
+function clearCandleCache(c, interval) {
+  var key = cacheKey(c, interval);
+  delete _memCache[key];
+  openCandleDB(function(db) {
+    if (!db) return;
+    try {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      log('[快取] 已清除 '+key,'info');
+    } catch(e) {}
+  });
+}
+
+function loadFromIDB(key, cb) {
+  openCandleDB(function(db) {
+    if (!db) { cb(null); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = function(e) { cb(e.target.result ? e.target.result.candles : null); };
+      req.onerror = function() { cb(null); };
+    } catch(e) { cb(null); }
+  });
+}
+
+// Show cache info in log
+function showCacheInfo() {
+  openCandleDB(function(db) {
+    if (!db) { log('[快取] IndexedDB 不可用','warn'); return; }
+    try {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var req = tx.objectStore(IDB_STORE).getAll();
+      req.onsuccess = function(e) {
+        var all = e.target.result || [];
+        if (!all.length) { log('[快取] 目前無快取資料','info'); return; }
+        all.forEach(function(d) {
+          var age = Math.round((Date.now()-d.ts)/60000);
+          var size = Math.round(JSON.stringify(d.candles).length/1024);
+          log('[快取] '+d.key+': '+d.candles.length+'根, '+size+'KB, '+age+'分前','info');
+        });
+      };
+    } catch(e) {}
+  });
+}
 var _mainYDrag={active:false,startY:0,startZoom:1.0};
 var _loadedSettings = null; // Y-axis zoom for sub-charts
 
@@ -866,22 +1089,72 @@ function getMTFConfluence(cur, mtf) {
 }
 
 function fetchCoinbase(c,interval){
-  log('[Coinbase] 建立請求...','warn');
   var gran=CB_GRAN_EX[interval]||CB_GRAN[interval]||3600;
-  // Coinbase max 300 candles per request
-  var limit=Math.min(300,350);
-  var end=new Date(),start=new Date(end.getTime()-limit*gran*1000);
-  var url=COINBASE+'/products/'+getCoinCB(c)+'/candles?granularity='+gran+'&start='+start.toISOString()+'&end='+end.toISOString();
-  return tfetch(url).then(function(raw){
-    if(!Array.isArray(raw)||raw.length===0)throw new Error('空資料');
-    return raw.sort(function(a,b){return a[0]-b[0];}).map(function(k){return{time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};});
+  // True 1 year - but cap at reasonable limits per interval
+  var maxBars={'60':8760,'300':8760,'900':8760,'21600':1460,'86400':730}[String(gran)]||8760;
+  var targetBars=Math.min(Math.ceil(365*86400/gran), maxBars);
+  var batchSize=299; // 299 to avoid boundary overlap
+  var prod=getCoinCB(c);
+  var batches=Math.ceil(targetBars/batchSize);
+  log('[Coinbase] 開始分批讀取目標'+targetBars+'根...','info');
+
+  function fetchBatch(endTs, accumulated) {
+    // endTs is a unix timestamp (seconds)
+    var endDate  = new Date(endTs*1000);
+    var startTs  = endTs - batchSize*gran;
+    var startDate= new Date(startTs*1000);
+    var url=COINBASE+'/products/'+prod+'/candles?granularity='+gran+
+      '&start='+startDate.toISOString()+'&end='+endDate.toISOString();
+
+    return tfetch(url,12000).then(function(raw){
+      if(!Array.isArray(raw)||!raw.length) return accumulated;
+
+      var parsed=raw.map(function(k){
+        return{time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};
+      }).sort(function(a,b){return a.time-b.time;});
+
+      // Merge: prepend new batch before accumulated
+      var merged = parsed.concat(accumulated);
+      // Deduplicate by time
+      var seen={};
+      merged=merged.filter(function(c){
+        if(seen[c.time])return false;
+        seen[c.time]=true;return true;
+      });
+      merged.sort(function(a,b){return a.time-b.time;});
+
+      setTime('讀取中 '+merged.length+'/'+targetBars);
+
+      if(merged.length>=targetBars) return merged;
+      if(parsed.length===0) return merged; // no more data
+
+      // Use the earliest candle time as next endTs (subtract 1 to avoid overlap)
+      var newEndTs = parsed[0].time - 1;
+      if(newEndTs <= 0) return merged;
+
+      return fetchBatch(newEndTs, merged);
+    }).catch(function(e){
+      log('[Coinbase] 批次失敗: '+e.message,'warn');
+      return accumulated;
+    });
+  }
+
+  // Start from now
+  var nowTs = Math.floor(Date.now()/1000);
+  return fetchBatch(nowTs, []).then(function(all){
+    if(!all||all.length===0) throw new Error('空資料');
+    log('[Coinbase] 完成 共'+all.length+'根','ok');
+    return all;
   });
 }
+
 function fetchKraken(c,interval){
   log('[Kraken] 備援...','warn');
   var krPair=getCoinKR(c)||c+'USD';
   var krInterval=KR_INT_EX[interval]||KR_INT[interval]||60;
-  var url=KRAKEN+'/OHLC?pair='+krPair+'&interval='+krInterval;
+  var targetKr=Math.min(Math.ceil(365*1440/krInterval), 720); // 1 year, max 720
+  var sinceTs=Math.floor(Date.now()/1000)-krInterval*60*targetKr;
+  var url=KRAKEN+'/OHLC?pair='+krPair+'&interval='+krInterval+'&since='+sinceTs;
   return tfetch(url,12000).then(function(raw){
     if(raw.error&&raw.error.length)throw new Error(raw.error[0]);
     var key=Object.keys(raw.result).filter(function(k){return k!=='last';})[0];
@@ -1210,57 +1483,147 @@ function onMouseUp(){
 function onMouseLeave(){
   VIEW.dragging=false;
   document.getElementById('mc').style.cursor='crosshair';
-  document.getElementById('xhair-tooltip').style.display='none';
-  redraw();
+  clearTimeout(_xhairStopTimer);
+  if(_xhairIdx>=0&&gCandles[_xhairIdx]){
+    var cc=gCandles[_xhairIdx],tip=document.getElementById('xhair-tooltip');
+    if(tip&&cc){
+      var dp2=cc.close>1000?2:4,chg=cc.open?(cc.close-cc.open)/cc.open*100:0;
+      var dd=new Date(cc.time*1000),mm=dd.getMonth()+1,day=dd.getDate();
+      var hh=dd.getHours().toString().padStart(2,'0'),mi=dd.getMinutes().toString().padStart(2,'0');
+      var lines=['時間: '+mm+'/'+day+' '+hh+':'+mi,'開: '+cc.open.toFixed(dp2)+'  高: '+cc.high.toFixed(dp2),'低: '+cc.low.toFixed(dp2)+'  收: '+cc.close.toFixed(dp2),'漲跌: '+(chg>=0?'+':'')+chg.toFixed(2)+'%'];
+      tip.textContent=lines.join('\n');tip.style.display='block';
+    }
+  }
 }
-
 var _xhairIdx=-1;
-function drawCrosshair(e){
-  if(!gCandles.length||!gAnalysis)return;
+var _xhairPx=-1, _xhairPy=-1; // last mouse pixel position
+
+function drawCrosshairAtIdx(idx){
+  if(idx<0||!gCandles[idx]||!gAnalysis)return;
   var mcEl=document.getElementById('mca');
-  var rect=mcEl.getBoundingClientRect();
-  var mx=e.clientX-rect.left, my=e.clientY-rect.top;
-  var W=rect.width,H=rect.height;
+  if(!mcEl)return;
+  var W=mcEl.clientWidth,H=mcEl.clientHeight;
   var PAD={l:8,r:70,t:14,b:22};
   var span=VIEW.end-VIEW.start;
   var cw=(W-PAD.l-PAD.r)/span;
-  // which bar?
-  var barF=(mx-PAD.l)/cw;
-  var barIdx=Math.floor(VIEW.start+barF);
-  if(barIdx<0||barIdx>=gCandles.length){document.getElementById('xhair-tooltip').style.display='none';return;}
-  _xhairIdx=barIdx;
-  var c=gCandles[barIdx];
-  if(!c)return;
-  // price range for this view
-  var viewRange=getViewPriceRange();
-  var minP=viewRange.min,maxP=viewRange.max;
-  function py(p){if(p==null||isNaN(p)||!isFinite(p))return -9999;return PAD.t+(maxP-p)/(maxP-minP)*(H-PAD.t-PAD.b);}
-  function pxf(i){return PAD.l+(i-VIEW.start+0.5)*cw;}
-  var cx=pxf(barIdx);
-  // redraw with crosshair
-  redraw();
+  var c=gCandles[idx];
+  var vr=getViewPriceRange();
+  var minP=vr.min,maxP=vr.max;
+  function py(p){return PAD.t+(maxP-p)/(maxP-minP)*(H-PAD.t-PAD.b);}
+  var cx=PAD.l+(idx-VIEW.start+0.5)*cw;
+  var cy=py(c.close);
+  if(cx<PAD.l||cx>W-PAD.r)return;
+  // Draw on canvas
   var cv=document.getElementById('mc');
+  if(!cv)return;
   var ctx=cv.getContext('2d');
   var dpr=window.devicePixelRatio||1;
-  ctx.save();ctx.scale(dpr,dpr);
-  ctx.strokeStyle='rgba(200,200,200,.35)';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+  ctx.save();
+  ctx.scale(dpr,dpr);
+  ctx.strokeStyle='rgba(255,255,255,.25)';
+  ctx.lineWidth=1;
+  ctx.setLineDash([3,3]);
   ctx.beginPath();ctx.moveTo(cx,PAD.t);ctx.lineTo(cx,H-PAD.b);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(PAD.l,cy);ctx.lineTo(W-PAD.r,cy);ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+  // Update tooltip
+  var tip=document.getElementById('xhair-tooltip');
+  if(tip){
+    var dp=c.close>1000?2:4;
+    var chg=c.open?(c.close-c.open)/c.open*100:0;
+    var d=new Date(c.time*1000);
+    var mm=(d.getMonth()+1),dd=d.getDate(),hh=d.getHours().toString().padStart(2,'0'),mi=d.getMinutes().toString().padStart(2,'0');
+    tip.textContent='時間: '+mm+'/'+dd+' '+hh+':'+mi+'\n開: '+c.open.toFixed(dp)+'  高: '+c.high.toFixed(dp)+'\n低: '+c.low.toFixed(dp)+'  收: '+c.close.toFixed(dp)+'\n漲跌: '+(chg>=0?'+':'')+chg.toFixed(2)+'%';
+    tip.style.display='block';
+    tip.style.left=Math.min(cx+12, W-150)+'px';
+    tip.style.top=Math.max(PAD.t, Math.min(cy-20, H-80))+'px';
+  }
+}
+
+var _xhairStopTimer = null;
+var _lastMouseEvent = null; // store last mouse position
+
+var _lastMouseEvent=null;
+var _xhairStopTimer=null;
+
+function clearOverlay(){
+  var ov=document.getElementById('mc-overlay');
+  if(ov)ov.getContext('2d').clearRect(0,0,ov.width,ov.height);
+}
+function sizeOverlay(){
+  var mc=document.getElementById('mc'),ov=document.getElementById('mc-overlay');
+  if(!mc||!ov)return;
+  ov.width=mc.width;ov.height=mc.height;
+  ov.style.width=mc.style.width;ov.style.height=mc.style.height;
+}
+
+function drawCrosshair(e){
+  if(!gCandles.length||!gAnalysis)return;
+  _lastMouseEvent=e;
+  var mcEl=document.getElementById('mca');
+  var rect=mcEl.getBoundingClientRect();
+  var mx=e.clientX-rect.left;
+  var W=rect.width,H=rect.height;
+  var PAD={l:8,r:70,t:14,b:22};
+  var span=VIEW.end-VIEW.start;
+  if(span<=0)return;
+  var cw=(W-PAD.l-PAD.r)/span;
+  var barIdx=Math.floor(VIEW.start+(mx-PAD.l)/cw);
+  if(barIdx<0||barIdx>=gCandles.length){clearOverlay();return;}
+  _xhairIdx=barIdx;
+  var c=gCandles[barIdx];if(!c)return;
+  var vr=getViewPriceRange(),minP=vr.min,maxP=vr.max;
+  function py(p){return PAD.t+(maxP-p)/(maxP-minP)*(H-PAD.t-PAD.b);}
+  var cx=PAD.l+(barIdx-VIEW.start+0.5)*cw;
+  var cy=py(c.close);
+  var ov=document.getElementById('mc-overlay');
+  if(!ov)return;
+  sizeOverlay();
+  var dpr=window.devicePixelRatio||1;
+  var ctx=ov.getContext('2d');
+  ctx.clearRect(0,0,ov.width,ov.height);
+  ctx.save();ctx.scale(dpr,dpr);
+  // Use actual mouse position for crosshair, candle price for labels
+  var my=e.clientY-rect.top;
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(mx,PAD.t);ctx.lineTo(mx,H-PAD.b);ctx.stroke();
   ctx.beginPath();ctx.moveTo(PAD.l,my);ctx.lineTo(W-PAD.r,my);ctx.stroke();
   ctx.setLineDash([]);
-  // price label on y axis
-  var hoverPrice=maxP-(my-PAD.t)/(H-PAD.t-PAD.b)*(maxP-minP);
-  ctx.fillStyle='#e6edf3';ctx.font=Math.round(9*_fontSize/100)+'px JetBrains Mono';ctx.textAlign='left';
-  ctx.fillRect(W-PAD.r+1,my-7,68,14);
-  ctx.fillStyle='#0d1117';ctx.fillText(hoverPrice>1000?Math.round(hoverPrice).toLocaleString():hoverPrice.toFixed(4),W-PAD.r+4,my+3);
-  ctx.restore();
-  // Tooltip
+  // Y label: price at mouse position
+  var mousePrice=minP+(maxP-minP)*(1-(my-PAD.t)/(H-PAD.t-PAD.b));
+  var dp=mousePrice>1000?0:4;
+  ctx.fillStyle='rgba(60,60,60,.9)';
+  ctx.fillRect(W-PAD.r+1,my-8,PAD.r-2,16);
+  ctx.fillStyle='#fff';ctx.font='bold '+Math.round(9*_fontSize/100)+'px JetBrains Mono';ctx.textAlign='center';
+  ctx.fillText(mousePrice>1000?Math.round(mousePrice).toLocaleString():mousePrice.toFixed(dp),W-PAD.r+(PAD.r-2)/2,my+3);
+  // X label: candle time
   var d=new Date(c.time*1000);
-  var chg=((c.close-c.open)/c.open*100).toFixed(2);
-  var txt='時間: '+d.getMonth()+'/'+(d.getDate())+' '+d.getHours().toString().padStart(2,'0')+':00\n開: '+fmt(c.open,c.open>100?1:4)+'  高: '+fmt(c.high,c.high>100?1:4)+'\n低: '+fmt(c.low,c.low>100?1:4)+'  收: '+fmt(c.close,c.close>100?1:4)+'\n漲跌: '+(chg>=0?'+':'')+chg+'%';
+  var tlbl=(d.getMonth()+1)+'/'+(d.getDate())+' '+d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');
+  ctx.font=Math.round(9*_fontSize/100)+'px JetBrains Mono';
+  var tw=ctx.measureText(tlbl).width+8;
+  ctx.fillStyle='rgba(60,60,60,.9)';
+  ctx.fillRect(mx-tw/2,H-PAD.b+1,tw,14);
+  ctx.fillStyle='#fff';ctx.textAlign='center';
+  ctx.fillText(tlbl,mx,H-PAD.b+11);
+  ctx.restore();
   var tip=document.getElementById('xhair-tooltip');
-  tip.style.display='block';tip.textContent=txt;
-  var tx=Math.min(mx+12, W-150), ty=Math.max(my-70,4);
-  tip.style.left=tx+'px';tip.style.top=ty+'px';
+  if(tip)tip.style.display='none';
+  clearTimeout(_xhairStopTimer);
+  _xhairStopTimer=setTimeout(function(){
+    if(!tip||_xhairIdx<0)return;
+    var cc=gCandles[_xhairIdx];if(!cc)return;
+    var dp2=cc.close>1000?2:4;
+    var chg=cc.open?(cc.close-cc.open)/cc.open*100:0;
+    var dd=new Date(cc.time*1000);
+    var mm=dd.getMonth()+1,day=dd.getDate();
+    var hh=dd.getHours().toString().padStart(2,'0'),mi=dd.getMinutes().toString().padStart(2,'0');
+    var lines=['時間: '+mm+'/'+day+' '+hh+':'+mi,'開: '+cc.open.toFixed(dp2)+'  高: '+cc.high.toFixed(dp2),'低: '+cc.low.toFixed(dp2)+'  收: '+cc.close.toFixed(dp2),'漲跌: '+(chg>=0?'+':'')+chg.toFixed(2)+'%'];
+    tip.textContent=lines.join('\n');
+    tip.style.display='block';
+    tip.style.left=Math.min(cx+12,W-160)+'px';
+    tip.style.top=Math.max(14,Math.min(cy-20,H-90))+'px';
+  },400);
 }
 
 function getViewPriceRange(){
@@ -1553,8 +1916,10 @@ function drawMacd(){
   ctx.fillText('MACD',W-PAD.r+6,16);ctx.fillText('Signal',W-PAD.r+6,28);
 }
 
+var _isRedrawing = false;
 function redraw(){
   drawMain();drawVolume(gCandles);drawRsi();drawMacd();
+  if(_lastMouseEvent)drawCrosshair(_lastMouseEvent);
 }
 
 // ═══ EVENT LISTENERS ════════════════════════════════
@@ -1699,27 +2064,119 @@ function drawSignals(signals){
 function setStatus(on){document.getElementById('dot').className=on?'spin':'';var b=document.getElementById('rbtn');on?b.classList.add('spin'):b.classList.remove('spin');}
 function setTime(t){var e=document.getElementById('utxt');if(e)e.textContent=t;}
 
-function loadData(){
-  setStatus(true);setTime('連線中...');
-  log('=== 載入 ['+coin+' '+iv+'] ===','info');
-  Promise.all([fetchCandles(coin,iv),fetchStats(coin),fetchLS(coin),fetchFearGreed(),fetchFundingRate(coin),fetchMTF(coin),fetchOrderbook(coin)]).then(function(res){
-    var candles=res[0],stats=res[1],lsData=res[2],fgData=res[3],frData=res[4],mtfRes=res[5],obRes=res[6];
-    log('K線: '+candles.length+' 筆','ok');
-    if(!candles||candles.length<30)throw new Error('K線不足');
-    gCandles=candles;
-    _mtfData = mtfRes;
-    gAnalysis=analyze(candles);
-    log('composite='+gAnalysis.composite.toFixed(3),'ok');
-    // reset view to show last 80 bars + pred
-    VIEW.start=Math.max(0,candles.length-80);
-    VIEW.end=candles.length+gAnalysis.pred.c24;
-    var price=parseFloat(stats.last),open24=parseFloat(stats.open),chg=open24?(price-open24)/open24*100:0;
-    var dp=price>1000?2:4;
-    document.getElementById('cur').textContent='$'+fmt(price,dp);
-    var el=document.getElementById('chg');el.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';el.className=chg>=0?'up':'dn';
-    setTime('繪圖...');
-    redraw();drawGauge(gAnalysis.composite);drawPred(gAnalysis);drawSignals(gAnalysis.signals);
-    updateZoomInfo();
+function loadData(forceRemote){
+  setStatus(true); setTime('連線中...');
+
+  // Try cache first (IndexedDB async), unless forced remote
+  var cachePromise = forceRemote ? Promise.resolve(null) : loadCachedCandles(coin, iv);
+
+  cachePromise.then(function(cached){
+    if (cached && cached.length >= 30) {
+      // ── 有快取：直接畫圖，背景補最新K線 ──
+      log('=== 快取載入 ['+coin+' '+iv+'] '+cached.length+'根 ===','ok');
+      gCandles = cached;
+      var gran2 = CB_GRAN_EX[iv]||CB_GRAN[iv]||3600;
+      var latestFetcher = gran2 ? fetchCoinbaseLatest(coin,iv) : fetchKraken(coin,iv);
+
+      // All side fetches are optional - chart will draw even if they fail
+      Promise.all([
+        fetchStats(coin).catch(function(){return {last:0,open:0};}),
+        fetchLS(coin).catch(function(){return null;}),
+        fetchFearGreed().catch(function(){return null;}),
+        fetchFundingRate(coin).catch(function(){return null;}),
+        fetchMTF(coin).catch(function(){return null;}),
+        fetchOrderbook(coin).catch(function(){return null;})
+      ]).then(function(res){
+        latestFetcher.then(function(newC){
+          if(newC&&newC.length){
+            var lastT = gCandles[gCandles.length-1].time;
+            var toAdd = newC.filter(function(c){return c.time>lastT;});
+            if(toAdd.length){ gCandles = gCandles.concat(toAdd); log('[增量] +'+toAdd.length+'根','ok'); }
+            gCandles[gCandles.length-1] = newC[newC.length-1];
+            saveCandles(coin, iv, gCandles);
+          }
+        }).catch(function(){});
+        finishLoad(res[0],res[1],res[2],res[3],res[4],res[5]);
+      });
+
+    } else {
+      // ── 無快取：從交易所完整抓取 ──
+      log('=== 遠端載入 ['+coin+' '+iv+'] ===','info');
+      Promise.all([
+        fetchCandles(coin,iv),
+        fetchStats(coin).catch(function(){return {last:0,open:0};}),
+        fetchLS(coin).catch(function(){return null;}),
+        fetchFearGreed().catch(function(){return null;}),
+        fetchFundingRate(coin).catch(function(){return null;}),
+        fetchMTF(coin).catch(function(){return null;}),
+        fetchOrderbook(coin).catch(function(){return null;})
+      ]).then(function(res){
+        var candles=res[0],stats=res[1],lsData=res[2],
+            fgData=res[3],frData=res[4],mtfRes=res[5],obRes=res[6];
+        if(!candles||candles.length<30) throw new Error('K線不足 ('+(candles?candles.length:0)+'根)');
+        gCandles = candles;
+        log('遠端完成 '+candles.length+'根','ok');
+        saveCandles(coin, iv, gCandles);
+        finishLoad(stats,lsData,fgData,frData,mtfRes,obRes);
+      }).catch(function(err){
+        log('載入失敗: '+err.message,'err');
+        setTime('失敗'); setStatus(false);
+      });
+    }
+  }).catch(function(err){
+    log('快取錯誤，改遠端: '+err.message,'warn');
+    loadData(true); // retry with force remote
+  });
+}
+
+
+function finishLoad(stats,lsData,fgData,frData,mtfRes,obRes){
+  _mtfData = mtfRes;
+  try { gAnalysis = analyze(gCandles); } catch(e) { log('analyze失敗:'+e.message,'err'); return; }
+  // Set view if not set yet
+  if(VIEW.start===0||VIEW.end===0){
+    VIEW.start = Math.max(0, gCandles.length-80);
+    VIEW.end   = gCandles.length + (gAnalysis.pred?gAnalysis.pred.c24:5);
+  } else {
+    VIEW.end = gCandles.length + (gAnalysis.pred?gAnalysis.pred.c24:5);
+  }
+  // Update header price
+  if(stats&&parseFloat(stats.last)>0){
+    var price=parseFloat(stats.last), open24=parseFloat(stats.open);
+    var chg = open24 ? (price-open24)/open24*100 : 0;
+    var dp  = price>1000?2:4;
+    var curEl=document.getElementById('cur');
+    if(curEl) curEl.innerHTML='$'+fmt(price,dp)+'<span id="ws-dot" class=""></span>';
+    var chgEl=document.getElementById('chg');
+    if(chgEl){chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';chgEl.className=chg>=0?'up':'dn';}
+  }
+  // Draw everything once
+  redraw();
+  drawGauge(gAnalysis.composite);
+  drawPred(gAnalysis);
+  drawSignals(gAnalysis.signals);
+  updateZoomInfo();
+  updateUI(stats,lsData,fgData,frData,obRes);
+  startWS();
+  var n=new Date();
+  setTime(n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0'));
+  setStatus(false);
+  log('=== 完成 ['+gCandles.length+'根] ===','ok');
+  // Auto-save only after prefetch completes or new candles added
+  if(gCandles.length>=100 && _prefetchDone) scheduleSave();
+  // Start background prefetch of all intervals (only once)
+  if(!_prefetchDone && !_prefetchActive) {
+    setTimeout(function(){ prefetchAllIntervals(coin); }, 2000);
+  }
+  setTimeout(function(){
+    var _s=readSettings();
+    if(_s) applyPostSettings(_s);
+    else { applyFontScale(); initSecHeights(); }
+  },150);
+}
+
+
+function updateUI(stats,lsData,fgData,frData,obRes){
     updateLS(lsData);
     updateFearGreed(fgData);
     updateFundingRate(frData);
@@ -1755,14 +2212,9 @@ function loadData(){
       // Collapse/expand sections
       initSecHeights();
       if (_loadedSettings) applySecStates(_loadedSettings);
-    }, 250);
-    startWS();
-    var n=new Date();setTime('更新:'+n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')+':'+n.getSeconds().toString().padStart(2,'0'));
-    setStatus(false);log('=== 完成 ===','ok');
-  }).catch(function(e){
-    log('!!! 失敗: '+e.message,'err');setTime('失敗');setStatus(false);
-  });
+    },250);
 }
+
 function switchCoin(c,el){coin=c;var lbl=document.getElementById('coin-sym-lbl');if(lbl)lbl.textContent=c;saveSettings();if(_ws){_ws.close();_ws=null;_wsSymbol='';}loadData();}
 function switchIv(interval,el){iv=interval;saveSettings();loadData();} // kept for compat
 
@@ -2196,7 +2648,7 @@ function detectDivergence(candles, rsiArr, macdArr) {
   return result;
 }
 
-// ── 4. 整合進 analyze() 的預測權重調整 ──────────
+// ── 4. 整合進 analyze() 的研判權重調整 ──────────
 function getMarketAdjustedScore(comp, marketState, patterns, divergence) {
   var adj = comp;
   var notes = [];
@@ -2366,7 +2818,7 @@ function ivItemHTML(x) {
 }
 
 function selectIv(s, lbl) {
-  if(!s) return; // disabled item
+  if(!s) return;
   iv = s;
   if(CB_GRAN_EX[s]) CB_GRAN[s] = CB_GRAN_EX[s];
   if(KR_INT_EX[s])  KR_INT[s]  = KR_INT_EX[s];
@@ -2374,6 +2826,39 @@ function selectIv(s, lbl) {
   if(btnLbl)btnLbl.textContent=lbl;
   closeIvDrop();
   saveSettings();
+
+  // ── 即時從記憶體快取顯示 ──────────────────────────
+  var key=cacheKey(coin,s);
+  if(_memCache[key]&&_memCache[key].candles.length>=30){
+    gCandles=_memCache[key].candles;
+    gAnalysis=null;_mtfData=null;
+    VIEW.start=0;VIEW.end=0;
+    try{gAnalysis=analyze(gCandles);}catch(e){}
+    if(gAnalysis){
+      VIEW.start=Math.max(0,gCandles.length-80);
+      VIEW.end=gCandles.length+(gAnalysis.pred?gAnalysis.pred.c24:5);
+      redraw();
+      drawGauge(gAnalysis.composite);
+      drawPred(gAnalysis);
+      drawSignals(gAnalysis.signals);
+    }
+    log('[切換] '+s+' 快取命中 '+gCandles.length+'根','ok');
+    // Background: update stats + latest candles only
+    fetchStats(coin).then(function(stats){
+      if(stats&&parseFloat(stats.last)>0){
+        var price=parseFloat(stats.last),open24=parseFloat(stats.open),chg=open24?(price-open24)/open24*100:0;
+        var dp=price>1000?2:4;
+        var curEl=document.getElementById('cur');
+        if(curEl)curEl.innerHTML='$'+fmt(price,dp)+'<span id="ws-dot" class="live"></span>';
+        var chgEl=document.getElementById('chg');
+        if(chgEl){chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';chgEl.className=chg>=0?'up':'dn';}
+      }
+    }).catch(function(){});
+    return;
+  }
+
+  // No memory cache: full load
+  gCandles=[];gAnalysis=null;_mtfData=null;
   loadData();
 }
 
@@ -2393,6 +2878,441 @@ document.addEventListener('click',function(e){
   var wrap=document.getElementById('iv-wrap');
   if(_ivDropOpen&&wrap&&!wrap.contains(e.target))closeIvDrop();
 });
+
+// ═══ REFETCH DATA ════════════════════════════════════
+function refetchData() {
+  clearCandleCache(coin, iv);
+  log('[重新抓取] 清除快取，重新下載...','warn');
+  loadData(true);
+}
+
+function _drawCrosshairOnly(e){
+  // Same as drawCrosshair but called from redraw - no recursion
+  if(!_lastMouseEvent||!gCandles.length||!gAnalysis) return;
+  drawCrosshair(e);
+}
+
+// ═══ AUTO SAVE / LOAD DATA FILE ═════════════════════
+var FIXED_FILENAME = 'CryptoLens_data.json';
+var _fileHandle = null;        // File System Access API handle
+var _autoLoadChecked = false;
+var DATA_FILE_KEY = 'cl_datafile_hint';
+var _saveTimer = null;
+
+// ── Collect all cache data ────────────────────────────
+function collectAllData(){
+  return new Promise(function(resolve){
+    var data={version:2,saved:new Date().toISOString(),cache:{}};
+    // Add memory cache
+    Object.keys(_memCache).forEach(function(k){
+      if(_memCache[k].candles.length>0)
+        data.cache[k]={candles:_memCache[k].candles,ts:_memCache[k].ts};
+    });
+    // Also add current gCandles
+    if(gCandles.length>0){
+      var key=cacheKey(coin,iv);
+      if(!data.cache[key]||data.cache[key].candles.length<gCandles.length)
+        data.cache[key]={candles:gCandles,ts:Date.now()};
+    }
+    // Merge IDB data
+    openCandleDB(function(db){
+      if(!db){resolve(data);return;}
+      try{
+        var tx=db.transaction(IDB_STORE,'readonly');
+        var req=tx.objectStore(IDB_STORE).getAll();
+        req.onsuccess=function(e){
+          (e.target.result||[]).forEach(function(d){
+            if(!data.cache[d.key]||data.cache[d.key].candles.length<d.candles.length)
+              data.cache[d.key]={candles:d.candles,ts:d.ts};
+          });
+          resolve(data);
+        };
+        req.onerror=function(){resolve(data);};
+      }catch(e){resolve(data);}
+    });
+  });
+}
+
+// ── File System Access API (auto save/load) ───────────
+function supportsFileAPI(){
+  return !!(window.showSaveFilePicker||window.showOpenFilePicker);
+}
+
+// First time: user picks file → save handle for future auto-saves
+// Persist file handle in IndexedDB across page refreshes
+var IDB_FH_DB = 'CryptoLensFH';
+var IDB_FH_STORE = 'handles';
+
+function openFHDB(cb){
+  try{
+    var req=indexedDB.open(IDB_FH_DB,1);
+    req.onupgradeneeded=function(e){
+      e.target.result.createObjectStore(IDB_FH_STORE);
+    };
+    req.onsuccess=function(e){cb(e.target.result);};
+    req.onerror=function(){cb(null);};
+  }catch(e){cb(null);}
+}
+
+function saveFHtoDB(handle){
+  openFHDB(function(db){
+    if(!db)return;
+    try{
+      var tx=db.transaction(IDB_FH_STORE,'readwrite');
+      tx.objectStore(IDB_FH_STORE).put(handle,'fileHandle');
+    }catch(e){}
+  });
+}
+
+function loadFHfromDB(){
+  return new Promise(function(resolve){
+    openFHDB(function(db){
+      if(!db){resolve(null);return;}
+      try{
+        var tx=db.transaction(IDB_FH_STORE,'readonly');
+        var req=tx.objectStore(IDB_FH_STORE).get('fileHandle');
+        req.onsuccess=function(e){resolve(e.target.result||null);};
+        req.onerror=function(){resolve(null);};
+      }catch(e){resolve(null);}
+    });
+  });
+}
+
+async function initFileHandle(){
+  if(_fileHandle) return _fileHandle;
+  // Try to restore from IDB
+  try{
+    var stored=await loadFHfromDB();
+    if(stored){
+      // Verify permission
+      var perm=await stored.queryPermission({mode:'readwrite'});
+      if(perm==='granted'){
+        _fileHandle=stored;
+        log('[存檔] 自動使用已儲存的檔案位置','ok');
+        return _fileHandle;
+      }
+      // Request permission if needed
+      perm=await stored.requestPermission({mode:'readwrite'});
+      if(perm==='granted'){
+        _fileHandle=stored;
+        log('[存檔] 權限已確認','ok');
+        return _fileHandle;
+      }
+    }
+  }catch(e){}
+  // First time: let user pick
+  try{
+    _fileHandle=await window.showSaveFilePicker({
+      suggestedName:FIXED_FILENAME,
+      types:[{description:'JSON Data',accept:{'application/json':['.json']}}]
+    });
+    saveFHtoDB(_fileHandle); // persist for next session
+    try{localStorage.setItem('cl_fsh','1');}catch(e){}
+    log('[存檔] 已設定儲存位置: '+FIXED_FILENAME,'ok');
+    return _fileHandle;
+  }catch(e){return null;}
+}
+
+async function autoSaveToFile(){
+  if(_prefetchActive){
+    log('[存檔] 預載進行中，請等待完成後再儲存...','warn');
+    return;
+  }
+  var data=await collectAllData();
+  var total=Object.keys(data.cache).length;
+  if(total===0){log('沒有資料可儲存','warn');return;}
+  var totalBars=Object.keys(data.cache).reduce(function(s,k){return s+data.cache[k].candles.length;},0);
+
+  if(supportsFileAPI()){
+    try{
+      var handle=await initFileHandle();
+      if(!handle){_fallbackDownload(data,totalBars);return;}
+      var writable=await handle.createWritable();
+      await writable.write(JSON.stringify(data));
+      await writable.close();
+      try{localStorage.setItem(DATA_FILE_KEY,'saved');}catch(e){}
+      log('✅ 自動儲存 '+total+' 組 '+totalBars+'根 → '+FIXED_FILENAME,'ok');
+      return;
+    }catch(e){log('[存檔] API失敗，改下載: '+e.message,'warn');}
+  }
+  _fallbackDownload(data,totalBars);
+}
+
+function _fallbackDownload(data,totalBars){
+  var json=JSON.stringify(data);
+  var blob=new Blob([json],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=FIXED_FILENAME;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  try{localStorage.setItem(DATA_FILE_KEY,'saved');}catch(e){}
+  log('✅ 已下載 '+totalBars+'根 → '+FIXED_FILENAME,'ok');
+}
+
+// Trigger save (debounced - save 5s after last data update)
+function scheduleSave(){
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(function(){
+    autoSaveToFile();
+  },5000);
+}
+
+// Auto-load on startup
+async function autoLoadFile(){
+  if(_autoLoadChecked)return;
+  _autoLoadChecked=true;
+
+  if(supportsFileAPI()&&localStorage.getItem('cl_fsh')){
+    // Try to auto-read from stored file handle (no dialog needed!)
+    try{
+      var stored=await loadFHfromDB();
+      if(stored){
+        var perm=await stored.queryPermission({mode:'readwrite'});
+        if(perm==='prompt') perm=await stored.requestPermission({mode:'readwrite'});
+        if(perm==='granted'){
+          _fileHandle=stored;
+          var file=await stored.getFile();
+          var text=await file.text();
+          log('[自動載入] 從 '+FIXED_FILENAME+' 讀取資料...','info');
+          _applyLoadedData(JSON.parse(text));
+          return;
+        }
+      }
+    }catch(e){
+      if(e.name!=='AbortError') log('[自動載入] '+e.message,'warn');
+    }
+    // Fallback: ask user to pick file
+    try{
+      var [handle]=await window.showOpenFilePicker({
+        types:[{description:'JSON Data',accept:{'application/json':['.json']}}],
+        multiple:false
+      });
+      _fileHandle=handle;
+      saveFHtoDB(handle);
+      var file=await handle.getFile();
+      var text=await file.text();
+      _applyLoadedData(JSON.parse(text));
+      return;
+    }catch(e){
+      if(e.name!=='AbortError') log('[讀檔] '+e.message,'warn');
+    }
+  }
+  // Fallback: check if user has saved before, prompt to select file
+  if(localStorage.getItem(DATA_FILE_KEY)==='saved'&&gCandles.length<200){
+    setTimeout(function(){
+      if(gCandles.length<200){
+        if(confirm('偵測到本機有儲存的K線資料 ('+FIXED_FILENAME+')\n要載入嗎？（按取消從交易所下載）')){
+          document.getElementById('btn-load-file').click();
+        }
+      }
+    },2000);
+  }
+}
+
+function _applyLoadedData(data){
+  if(!data||!data.cache){log('❌ 無效資料檔案','err');return;}
+  var count=0,totalBars=0;
+  Object.keys(data.cache).forEach(function(k){
+    var d=data.cache[k];
+    if(!d.candles||!d.candles.length)return;
+    _memCache[k]={candles:d.candles,ts:d.ts||Date.now()};
+    totalBars+=d.candles.length;
+    try{sessionStorage.setItem('cl_ss_'+k,JSON.stringify({candles:d.candles,ts:d.ts,full:d.candles.length}));}catch(e){
+      try{sessionStorage.setItem('cl_ss_'+k,JSON.stringify({candles:d.candles.slice(-1000),ts:d.ts,full:d.candles.length}));}catch(e2){}
+    }
+    saveCandles(k.split('_')[0],k.split('_').slice(1).join('_'),d.candles);
+    count++;
+  });
+  log('✅ 載入 '+count+' 組 共'+totalBars+'根 K線','ok');
+  // Apply current coin/iv
+  var key=cacheKey(coin,iv);
+  if(_memCache[key]&&_memCache[key].candles.length>=30){
+    gCandles=_memCache[key].candles;
+    VIEW.start=0;VIEW.end=0;
+    try{gAnalysis=analyze(gCandles);}catch(ex){}
+    if(gAnalysis){
+      VIEW.start=Math.max(0,gCandles.length-80);
+      VIEW.end=gCandles.length+(gAnalysis.pred?gAnalysis.pred.c24:5);
+      redraw();drawGauge(gAnalysis.composite);drawPred(gAnalysis);drawSignals(gAnalysis.signals);
+    }
+    fetchStats(coin).then(function(stats){
+      if(stats&&parseFloat(stats.last)>0){
+        var price=parseFloat(stats.last),open24=parseFloat(stats.open),chg=open24?(price-open24)/open24*100:0;
+        var dp=price>1000?2:4;
+        var curEl=document.getElementById('cur');
+        if(curEl)curEl.innerHTML='$'+fmt(price,dp)+'<span id="ws-dot" class=""></span>';
+        var chgEl=document.getElementById('chg');
+        if(chgEl){chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';chgEl.className=chg>=0?'up':'dn';}
+      }
+    }).catch(function(){});
+    startWS();setStatus(false);
+  } else {
+    loadData(false);
+  }
+}
+
+// Legacy: load from file input (fallback)
+function loadDataFromFile(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{_applyLoadedData(JSON.parse(e.target.result));}
+    catch(e){log('❌ 載入失敗: '+e.message,'err');}
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+// Old wrappers kept for button compatibility
+function saveDataToFile(){autoSaveToFile();}
+function checkAutoLoad(){autoLoadFile();}
+
+
+// ═══ PREFETCH ALL INTERVALS ═════════════════════════
+var _prefetchDone = false;
+var _prefetchActive = false;
+
+// All supported Coinbase intervals
+// All Coinbase-supported intervals to prefetch
+var PREFETCH_IVS = [
+  {iv:'1m',  gran:60,    max:8760},
+  {iv:'5m',  gran:300,   max:8760},
+  {iv:'15m', gran:900,   max:8760},
+  {iv:'1h',  gran:3600,  max:8760},
+  {iv:'6h',  gran:21600, max:1460},
+  {iv:'4h',  gran:21600, max:1460},
+  {iv:'1d',  gran:86400, max:365},
+];
+
+// Only prefetch favorited coins
+function getPrefetchCoins(){
+  return (_favCoins||[]).slice(0,10); // max 10 favorites
+}
+
+function prefetchAllIntervals(c) {
+  if(_prefetchActive||_prefetchDone) return;
+  _prefetchActive = true;
+
+  // Build full queue: all intervals × all favorite coins
+  var coins = getPrefetchCoins();
+  var queue = [];
+  coins.forEach(function(sym){
+    PREFETCH_IVS.forEach(function(item){
+      // Skip if already cached
+      var key=cacheKey(sym, item.iv);
+      if(_memCache[key]&&_memCache[key].candles.length>=item.max*0.8) return;
+      queue.push({coin:sym, iv:item.iv, gran:item.gran, max:item.max});
+    });
+  });
+  if(queue.length===0){
+    _prefetchDone=true;_prefetchActive=false;
+    log('[預載] 所有資料已有快取','ok');
+    return;
+  }
+
+  var total = queue.length;
+  var completed = 0;
+  var failed = 0;
+  var coins2 = [...new Set(queue.map(function(q){return q.coin;}))];
+  log('[預載] 開始下載 '+coins2.join(',')+' × '+PREFETCH_IVS.length+'個時間框架 共'+total+'項...','info');
+
+  function updateBtn(){
+    var sl=document.getElementById('btn-save-lbl');
+    if(sl) sl.textContent='⏳ '+completed+'/'+total;
+  }
+
+  function next() {
+    updateBtn();
+    if(!queue.length) {
+      _prefetchDone = true;
+      _prefetchActive = false;
+      var sl=document.getElementById('btn-save-lbl');
+      if(sl) sl.textContent='💾 儲存資料';
+      var totalBars=Object.keys(_memCache).reduce(function(s,k){return s+_memCache[k].candles.length;},0);
+      log('[預載] 完成! '+completed+'成功 '+failed+'失敗 共'+totalBars+'根 K線','ok');
+      scheduleSave();
+      return;
+    }
+
+    var item = queue.shift();
+    var key = cacheKey(item.coin, item.iv);
+
+    // Skip if already have sufficient data (80% of target)
+    if(_memCache[key] && _memCache[key].candles.length >= item.max * 0.8) {
+      log('[預載] '+item.iv+' 已有 '+_memCache[key].candles.length+'根，跳過','info');
+      completed++;
+      next();
+      return;
+    }
+
+    log('[預載] 下載 '+item.coin+' '+item.iv+' 目標'+item.max+'根...','info');
+
+    fetchCoinbaseAll(item.coin, item.iv, item.gran, item.max)
+      .then(function(candles) {
+        if(candles && candles.length > 0) {
+          _memCache[key] = {candles: candles, ts: Date.now()};
+          // Save to IDB
+          saveCandles(item.coin, item.iv, candles);
+          // Save to sessionStorage
+          try {
+            sessionStorage.setItem('cl_ss_'+key, JSON.stringify({
+              candles: candles, ts: Date.now(), full: candles.length
+            }));
+          } catch(e) {}
+          completed++;
+          log('[預載] ✅ '+item.iv+' '+candles.length+'根 ('+completed+'/'+total+')','ok');
+        } else {
+          failed++;
+          log('[預載] ⚠️ '+item.iv+' 無資料','warn');
+        }
+        // Small pause between intervals to avoid rate limiting
+        setTimeout(next, 500);
+      })
+      .catch(function(e) {
+        failed++;
+        log('[預載] ❌ '+item.iv+' 失敗: '+e.message,'warn');
+        setTimeout(next, 1000);
+      });
+  }
+
+  // Start with a small delay after page load
+  setTimeout(next, 500);
+}
+
+// Fetch all candles for a specific interval (no current coin display update)
+function fetchCoinbaseAll(c, interval, gran, targetBars) {
+  var batchSize = 299;
+  var prod = getCoinCB(c);
+
+  function fetchBatchAll(endTs, accumulated) {
+    var endDate   = new Date(endTs * 1000);
+    var startDate = new Date((endTs - batchSize * gran) * 1000);
+    var url = COINBASE + '/products/' + prod + '/candles?granularity=' + gran +
+      '&start=' + startDate.toISOString() + '&end=' + endDate.toISOString();
+
+    return tfetch(url, 15000).then(function(raw) {
+      if(!Array.isArray(raw) || !raw.length) return accumulated;
+      var parsed = raw.map(function(k) {
+        return {time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};
+      }).sort(function(a,b){return a.time-b.time;});
+      var merged = parsed.concat(accumulated);
+      var seen = {};
+      merged = merged.filter(function(c){if(seen[c.time])return false;seen[c.time]=true;return true;});
+      merged.sort(function(a,b){return a.time-b.time;});
+      if(merged.length >= targetBars) return merged;
+      if(parsed.length === 0) return merged;
+      var newEndTs = parsed[0].time - 1;
+      if(newEndTs <= 0) return merged;
+      // Small delay between batches to avoid rate limiting
+      return new Promise(function(resolve) {
+        setTimeout(function() { resolve(fetchBatchAll(newEndTs, merged)); }, 300);
+      });
+    }).catch(function() { return accumulated; });
+  }
+
+  return fetchBatchAll(Math.floor(Date.now()/1000), []);
+}
 
 // ═══ COLLAPSIBLE SECTIONS ══════════════════════════
 function toggleSec(id) {
@@ -2589,6 +3509,7 @@ function applyPostSettings(s){
 document.addEventListener('DOMContentLoaded',function(){
   loadFavs();
   loadFavIvs();
+  autoLoadFile(); // auto-load CryptoLens_data.json
   // Validate current iv
   if(ALL_IVS&&!ALL_IVS.find(function(x){return x[0]===iv;})){iv='1h';}
   log('CryptoLens 啟動','ok');
@@ -2606,9 +3527,32 @@ document.addEventListener('DOMContentLoaded',function(){
     applyFontScale();
   }
   loadData();
-  setInterval(loadData,300000); // 每5分鐘更新指標/K線
-});
-
-</script>
+  // Every 5 min: only fetch latest candles and merge (not full reload)
+  setInterval(function(){
+    if(!gCandles.length) return;
+    var gran = CB_GRAN_EX[iv]||CB_GRAN[iv]||3600;
+    var cbOk = !!gran;
+    var fetcher = cbOk ? fetchCoinbaseLatest(coin,iv) : fetchKraken(coin,iv);
+    fetcher.then(function(newC){
+      if(!newC||!newC.length||!gCandles.length) return;
+      var lastT = gCandles[gCandles.length-1].time;
+      var toAdd = newC.filter(function(c){return c.time>lastT;});
+      // Always update last bar (current candle)
+      gCandles[gCandles.length-1] = newC[newC.length-1];
+      if(toAdd.length){
+        gCandles = gCandles.concat(toAdd);
+        log('[定時] +'+toAdd.length+'根新K線','info');
+        saveCandles(coin,iv,gCandles);
+        scheduleSave();
+      }
+      // Re-analyze and redraw
+      try{ gAnalysis=analyze(gCandles); }catch(e){}
+      if(gAnalysis){
+        VIEW.end=gCandles.length+(gAnalysis.pred?gAnalysis.pred.c24:5);
+        redraw();
+      }
+    }).catch(function(){});
+  }, 300000);
+});</script>
 </body>
 </html>
