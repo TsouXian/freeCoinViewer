@@ -18,6 +18,26 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'Syne',sa
 .ctab.on,.itab.on{background:var(--blue);color:#fff;border-color:var(--blue);}
 .ctab:hover:not(.on),.itab:hover:not(.on){background:var(--bg3);color:var(--tx);}
 .sep{width:1px;height:22px;background:var(--bd);}
+/* Coin Selector */
+#coin-wrap{position:relative;}
+#coin-btn{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:4px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;min-width:110px;justify-content:space-between;}
+#coin-btn:hover{background:var(--bg3);}
+#coin-btn .coin-arrow{font-size:9px;color:var(--t3);}
+#coin-dropdown{position:absolute;top:calc(100% + 4px);left:0;z-index:9998;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;width:240px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;}
+#coin-dropdown.open{display:flex;flex-direction:column;}
+#coin-search{margin:8px 8px 4px;padding:5px 8px;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;width:calc(100% - 16px);}
+#coin-search::placeholder{color:var(--t3);}
+#coin-list{max-height:320px;overflow-y:auto;padding:4px;}
+#coin-list::-webkit-scrollbar{width:3px;}
+#coin-list::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+.coin-section{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--t3);padding:6px 8px 2px;}
+.coin-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer;font-size:11px;}
+.coin-item:hover{background:var(--bg3);}
+.coin-item.active{background:rgba(88,166,255,.15);color:var(--blue);}
+.coin-fav{cursor:pointer;font-size:12px;color:var(--t3);flex-shrink:0;line-height:1;padding:0 2px;}
+.coin-fav.on{color:var(--yellow);}
+.coin-sym{font-family:'JetBrains Mono',monospace;font-weight:700;flex:1;}
+.coin-name{font-size:10px;color:var(--t3);}
 #cur{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;margin-left:auto;}
 #chg{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;padding:2px 6px;border-radius:4px;}
 .up{background:rgba(38,166,154,.15);color:var(--bull);}.dn{background:rgba(239,83,80,.15);color:var(--bear);}
@@ -177,14 +197,42 @@ canvas{display:block;cursor:crosshair;}
 .lms{color:var(--t3);margin-left:auto;}
 #lclr{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;margin-right:4px;}
 
+
+/* Coin Dropdown */
+#coin-wrap{position:relative;display:flex;align-items:center;gap:4px;}
+#coin-display{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:4px;border:1px solid var(--bd);background:var(--bg3);cursor:pointer;min-width:100px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--tx);user-select:none;}
+#coin-display:hover{background:var(--bg4);}
+#coin-display .sym{color:var(--blue);}
+#coin-display .arrow{margin-left:auto;font-size:9px;color:var(--t3);}
+#coin-dropdown{position:absolute;top:calc(100% + 4px);left:0;z-index:9999;width:240px;background:var(--bg2);border:1px solid var(--bd);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;flex-direction:column;max-height:360px;}
+#coin-dropdown.open{display:flex;}
+#coin-search{margin:8px;padding:5px 9px;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;color:var(--tx);font-size:11px;font-family:'JetBrains Mono',monospace;outline:none;}
+#coin-search::placeholder{color:var(--t3);}
+#coin-list{overflow-y:auto;flex:1;}
+#coin-list::-webkit-scrollbar{width:3px;}
+#coin-list::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+.coin-item{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;transition:background .1s;}
+.coin-item:hover{background:var(--bg3);}
+.coin-item.active{background:rgba(88,166,255,.1);}
+.coin-sym{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--tx);min-width:52px;}
+.coin-name{font-size:10px;color:var(--t2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.coin-star{font-size:13px;cursor:pointer;color:var(--t3);padding:0 2px;flex-shrink:0;}
+.coin-star.fav{color:var(--yellow);}
+.coin-fav-sep{height:1px;background:var(--bd);margin:4px 0;}
 </style>
 </head>
 
 
 <div id="hdr">
-  <div style="display:flex;gap:3px;">
-    <button class="ctab on" onclick="switchCoin('BTC',this)">BTC/USD</button>
-    <button class="ctab" onclick="switchCoin('ETH',this)">ETH/USD</button>
+  <div id="coin-wrap">
+    <button id="coin-btn" onclick="toggleCoinDropdown()">
+      <span id="coin-btn-label">BTC/USD</span>
+      <span class="coin-arrow">▼</span>
+    </button>
+    <div id="coin-dropdown">
+      <input id="coin-search" type="text" placeholder="搜尋幣種..." oninput="filterCoins(this.value)" autocomplete="off"/>
+      <div id="coin-list"></div>
+    </div>
   </div>
   <div class="sep"></div>
   <div style="display:flex;gap:2px;">
@@ -438,17 +486,140 @@ function tfetch(url,timeout){
 // ═══ CONFIG ═════════════════════════════════════════
 var COINBASE='https://api.exchange.coinbase.com';
 var KRAKEN='https://api.kraken.com/0/public';
-var CB_PROD={BTC:'BTC-USD',ETH:'ETH-USD'};
-var KR_PAIR={BTC:'XBTUSD',ETH:'ETHUSD'};
 var CB_GRAN={'15m':900,'1h':3600,'4h':21600,'1d':86400};
 var KR_INT={'15m':15,'1h':60,'4h':240,'1d':1440};
 var coin='BTC',iv='1h';
+
+// ── All supported coins ──
+var ALL_COINS=[
+  {sym:'BTC', name:'Bitcoin',       cb:'BTC-USD',  kr:'XBTUSD'},
+  {sym:'ETH', name:'Ethereum',      cb:'ETH-USD',  kr:'ETHUSD'},
+  {sym:'SOL', name:'Solana',        cb:'SOL-USD',  kr:'SOLUSD'},
+  {sym:'BNB', name:'BNB',           cb:'BNB-USD',  kr:'BNBUSD'},
+  {sym:'XRP', name:'XRP',           cb:'XRP-USD',  kr:'XRPUSD'},
+  {sym:'ADA', name:'Cardano',       cb:'ADA-USD',  kr:'ADAUSD'},
+  {sym:'AVAX',name:'Avalanche',     cb:'AVAX-USD', kr:'AVAXUSD'},
+  {sym:'DOGE',name:'Dogecoin',      cb:'DOGE-USD', kr:'DOGEUSD'},
+  {sym:'MATIC',name:'Polygon',      cb:'MATIC-USD',kr:'MATICUSD'},
+  {sym:'DOT', name:'Polkadot',      cb:'DOT-USD',  kr:'DOTUSD'},
+  {sym:'LINK',name:'Chainlink',     cb:'LINK-USD', kr:'LINKUSD'},
+  {sym:'UNI', name:'Uniswap',       cb:'UNI-USD',  kr:'UNIUSD'},
+  {sym:'LTC', name:'Litecoin',      cb:'LTC-USD',  kr:'LTCUSD'},
+  {sym:'ATOM',name:'Cosmos',        cb:'ATOM-USD', kr:'ATOMUSD'},
+  {sym:'ETC', name:'Ethereum Classic',cb:'ETC-USD',kr:'ETCUSD'},
+  {sym:'XLM', name:'Stellar',       cb:'XLM-USD',  kr:'XLMUSD'},
+  {sym:'FIL', name:'Filecoin',      cb:'FIL-USD',  kr:'FILUSD'},
+  {sym:'APT', name:'Aptos',         cb:'APT-USD',  kr:'APTUSD'},
+  {sym:'ARB', name:'Arbitrum',      cb:'ARB-USD',  kr:'ARBUSD'},
+  {sym:'OP',  name:'Optimism',      cb:'OP-USD',   kr:'OPUSD'},
+  {sym:'SUI', name:'Sui',           cb:'SUI-USD',  kr:'SUIUSD'},
+  {sym:'NEAR',name:'NEAR Protocol', cb:'NEAR-USD', kr:'NEARUSD'},
+  {sym:'INJ', name:'Injective',     cb:'INJ-USD',  kr:'INJUSD'},
+  {sym:'FTM', name:'Fantom',        cb:'FTM-USD',  kr:'FTMUSD'},
+  {sym:'SAND',name:'The Sandbox',   cb:'SAND-USD', kr:'SANDUSD'},
+  {sym:'MANA',name:'Decentraland',  cb:'MANA-USD', kr:'MANAUSD'},
+  {sym:'AXS', name:'Axie Infinity', cb:'AXS-USD',  kr:'AXSUSD'},
+  {sym:'ALGO',name:'Algorand',      cb:'ALGO-USD', kr:'ALGOUSD'},
+  {sym:'VET', name:'VeChain',       cb:'VET-USD',  kr:'VETUSD'},
+  {sym:'ICP', name:'Internet Computer',cb:'ICP-USD',kr:'ICPUSD'},
+  {sym:'GRT', name:'The Graph',     cb:'GRT-USD',  kr:'GRTUSD'},
+  {sym:'AAVE',name:'Aave',          cb:'AAVE-USD', kr:'AAVEUSD'},
+  {sym:'MKR', name:'Maker',         cb:'MKR-USD',  kr:'MKRUSD'},
+  {sym:'SNX', name:'Synthetix',     cb:'SNX-USD',  kr:'SNXUSD'},
+  {sym:'CRV', name:'Curve',         cb:'CRV-USD',  kr:'CRVUSD'},
+  {sym:'LDO', name:'Lido DAO',      cb:'LDO-USD',  kr:'LDOUSD'},
+  {sym:'PEPE',name:'Pepe',          cb:'PEPE-USD', kr:'PEPEUSD'},
+  {sym:'WIF', name:'dogwifhat',     cb:'WIF-USD',  kr:'WIFUSD'},
+  {sym:'BONK',name:'Bonk',          cb:'BONK-USD', kr:'BONKUSD'},
+  {sym:'TRX', name:'TRON',          cb:'TRX-USD',  kr:'TRXUSD'},
+];
+
+// Dynamic CB_PROD and KR_PAIR from coin sym
+function getCoinCB(sym){ var c=ALL_COINS.find(function(x){return x.sym===sym;}); return c?c.cb:'BTC-USD'; }
+function getCoinKR(sym){ var c=ALL_COINS.find(function(x){return x.sym===sym;}); return c?c.kr:'XBTUSD'; }
+
+var _favCoins = ['BTC','ETH','SOL']; // default favorites
+
+// ── Dropdown logic ──
+var _coinDropOpen = false;
+function toggleCoinDropdown(){
+  _coinDropOpen=!_coinDropOpen;
+  var dd=document.getElementById('coin-dropdown');
+  dd.classList.toggle('open',_coinDropOpen);
+  if(_coinDropOpen){
+    renderCoinList('');
+    setTimeout(function(){document.getElementById('coin-search').focus();},50);
+  }
+}
+function closeCoinDropdown(){
+  _coinDropOpen=false;
+  document.getElementById('coin-dropdown').classList.remove('open');
+}
+document.addEventListener('click',function(e){
+  if(!document.getElementById('coin-wrap').contains(e.target)) closeCoinDropdown();
+});
+
+function renderCoinList(filter){
+  var list=document.getElementById('coin-list');
+  var f=filter.toUpperCase();
+  var favs=ALL_COINS.filter(function(c){return _favCoins.indexOf(c.sym)>=0&&(!f||c.sym.indexOf(f)>=0||c.name.toUpperCase().indexOf(f)>=0);});
+  var others=ALL_COINS.filter(function(c){return _favCoins.indexOf(c.sym)<0&&(!f||c.sym.indexOf(f)>=0||c.name.toUpperCase().indexOf(f)>=0);});
+  var html='';
+  if(favs.length){
+    html+='<div class="coin-section">★ 最愛</div>';
+    favs.forEach(function(c){ html+=coinItemHTML(c); });
+  }
+  if(others.length){
+    html+='<div class="coin-section">所有幣種</div>';
+    others.forEach(function(c){ html+=coinItemHTML(c); });
+  }
+  if(!favs.length&&!others.length) html='<div style="padding:12px;text-align:center;color:var(--t3);font-size:11px;">找不到幣種</div>';
+  list.innerHTML=html;
+}
+function coinItemHTML(c){
+  var isFav=_favCoins.indexOf(c.sym)>=0;
+  var isActive=c.sym===coin;
+  var sym2=c.sym;
+  return '<div class="coin-item'+(isActive?' active':'')+'" onclick="selectCoin(this)" data-sym="'+sym2+'">'
+    +'<span class="coin-fav'+(isFav?' on':'')+'" onclick="event.stopPropagation();toggleFavEl(this)" data-sym="'+sym2+'">'+(isFav?'★':'☆')+'</span>'
+    +'<span class="coin-sym">'+sym2+'</span>'
+    +'<span class="coin-name">'+c.name+'</span>'
+    +'</div>';
+}
+function selectCoin(el){
+  var sym=el.getAttribute('data-sym');
+  coin=sym;
+  var lbl=document.getElementById('coin-btn-label');if(lbl)lbl.textContent=sym+'/USD';
+  closeCoinDropdown();
+  // 立刻清空舊資料，避免切換時顯示舊幣的數據
+  gCandles=[];gAnalysis=null;_mtfData=null;
+  VIEW.start=0;VIEW.end=0;
+  YZOOM.vol=1.0;YZOOM.rsi=1.0;YZOOM.macd=1.0;YZOOM.main=1.0;
+  ['mc','rc','dc','vc'].forEach(function(id){
+    var cv=document.getElementById(id);if(!cv)return;
+    cv.getContext('2d').clearRect(0,0,cv.width,cv.height);
+  });
+  var curEl=document.getElementById('cur');
+  if(curEl)curEl.innerHTML='--<span id="ws-dot"></span>';
+  var chgEl=document.getElementById('chg');
+  if(chgEl){chgEl.textContent='--';chgEl.className='';}
+  saveSettings();
+  if(_ws){_ws.close();_ws=null;_wsSymbol='';}
+  loadData();
+}
+function toggleFavEl(el){
+  var sym=el.getAttribute('data-sym');
+  toggleFav(sym);
+}
+function filterCoins(val){ renderCoinList(val); }
+
 var gCandles=[],gAnalysis=null;
 
 // view state: indices into gCandles array (+ pred extension)
 var VIEW={start:0,end:0,dragging:false,dragStartX:0,dragStartView:0};
 var MIN_BARS=10;
-var YZOOM={vol:1.0,rsi:1.0,macd:1.0};
+var YZOOM={vol:1.0,rsi:1.0,macd:1.0,main:1.0};
+var _mainYDrag={active:false,startY:0,startZoom:1.0};
 var _loadedSettings = null; // Y-axis zoom for sub-charts
 
 // ═══ DATA FETCH ═════════════════════════════════════
@@ -456,7 +627,7 @@ var _loadedSettings = null; // Y-axis zoom for sub-charts
 var _obData = null;
 
 function fetchOrderbook(c) {
-  var prod = c==='BTC'?'BTC-USD':'ETH-USD';
+  var prod = getCoinCB(c);
   var url = 'https://api.exchange.coinbase.com/products/'+prod+'/book?level=2';
   return tfetch(url, 7000).then(function(r) {
     if (!r.bids || !r.asks) throw new Error('no data');
@@ -631,7 +802,7 @@ function fetchCoinbase(c,interval){
   // Coinbase max 300 candles per request
   var limit=Math.min(300,350);
   var end=new Date(),start=new Date(end.getTime()-limit*gran*1000);
-  var url=COINBASE+'/products/'+CB_PROD[c]+'/candles?granularity='+gran+'&start='+start.toISOString()+'&end='+end.toISOString();
+  var url=COINBASE+'/products/'+getCoinCB(c)+'/candles?granularity='+gran+'&start='+start.toISOString()+'&end='+end.toISOString();
   return tfetch(url).then(function(raw){
     if(!Array.isArray(raw)||raw.length===0)throw new Error('空資料');
     return raw.sort(function(a,b){return a[0]-b[0];}).map(function(k){return{time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};});
@@ -653,7 +824,7 @@ var LS_OKX   = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-accou
 var LS_SYM = {BTC:{bybit:'BTCUSDT',okx:'BTC'}, ETH:{bybit:'ETHUSDT',okx:'ETH'}};
 
 function fetchLSBybit(c) {
-  var sym = LS_SYM[c].bybit;
+  var sym = c + 'USDT';
   var url = LS_BYBIT + '?category=linear&symbol=' + sym + '&period=1h&limit=1';
   return tfetch(url, 7000).then(function(r) {
     if (!r.result || !r.result.list || !r.result.list.length) throw new Error('無資料');
@@ -664,7 +835,7 @@ function fetchLSBybit(c) {
 }
 
 function fetchLSOkx(c) {
-  var ccy = LS_SYM[c].okx;
+  var ccy = c;
   var url = LS_OKX + '?ccy=' + ccy + '&period=1H';
   return tfetch(url, 7000).then(function(r) {
     if (!r.data || !r.data.length) throw new Error('無資料');
@@ -710,8 +881,8 @@ function updateLS(data) {
 
 function fetchCandles(c,interval){return fetchCoinbase(c,interval).catch(function(e){log('[切換Kraken] '+e.message,'warn');return fetchKraken(c,interval);});}
 function fetchStats(c){
-  return tfetch(COINBASE+'/products/'+CB_PROD[c]+'/stats').catch(function(){
-    return tfetch(KRAKEN+'/Ticker?pair='+KR_PAIR[c]).then(function(r){var k=Object.keys(r.result)[0],t=r.result[k];return{last:+t.c[0],open:+t.o};});
+  return tfetch(COINBASE+'/products/'+getCoinCB(c)+'/stats').catch(function(){
+    return tfetch(KRAKEN+'/Ticker?pair='+getCoinKR(c)).then(function(r){var k=Object.keys(r.result)[0],t=r.result[k];return{last:+t.c[0],open:+t.o};});
   });
 }
 
@@ -1024,6 +1195,12 @@ function getViewPriceRange(){
   if(!allP.length)return{min:0,max:1};
   var minP=Math.min.apply(null,allP),maxP=Math.max.apply(null,allP);
   var pad=(maxP-minP)*0.05||maxP*0.001;
+  // Apply Y-zoom: expand/compress range around center price
+  if(YZOOM.main!==1.0&&minP<maxP){
+    var mid=(maxP+minP)/2;
+    var half=(maxP-minP)/2/YZOOM.main;
+    minP=mid-half;maxP=mid+half;
+  }
   return{min:minP-pad,max:maxP+pad};
 }
 
@@ -1216,6 +1393,13 @@ function drawMain(){
       ctx.fillText(lastC>1000?Math.round(lastC).toLocaleString():lastC.toFixed(dp), W-PAD.r+1+(PAD.r-2)/2, ly+4);
       // 觸發警報檢查
       checkAlerts(lastC);
+      // Y-zoom hint text on axis
+      if(YZOOM.main!==1.0){
+        ctx.fillStyle='rgba(88,166,255,.6)';
+        ctx.font=Math.round(8*_fontSize/100)+'px JetBrains Mono';
+        ctx.textAlign='left';
+        ctx.fillText('Y×'+YZOOM.main.toFixed(2),W-PAD.r+2,PAD.t+10);
+      }
     }
   }
 }
@@ -1297,6 +1481,35 @@ function bindEvents(){
   var mc=document.getElementById('mc');
   mc.addEventListener('wheel',onWheel,{passive:false});
 
+  // Right-side Y-axis drag to zoom price scale
+  mc.addEventListener('mousedown',function(e){
+    var rect=mc.getBoundingClientRect();
+    var x=e.clientX-rect.left;
+    var W=rect.width;
+    // Only trigger when clicking on right price axis area
+    if(x > W-80){
+      e.preventDefault();
+      e.stopPropagation();
+      _mainYDrag.active=true;
+      _mainYDrag.startY=e.clientY;
+      _mainYDrag.startZoom=YZOOM.main;
+      mc.style.cursor='ns-resize';
+    }
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!_mainYDrag.active)return;
+    var dy=_mainYDrag.startY-e.clientY; // up=zoom in
+    var factor=Math.pow(1.002, dy);
+    YZOOM.main=Math.max(0.2,Math.min(20,_mainYDrag.startZoom*factor));
+    if(gCandles.length)redraw();
+  });
+  document.addEventListener('mouseup',function(e){
+    if(_mainYDrag.active){
+      _mainYDrag.active=false;
+      document.getElementById('mc').style.cursor='crosshair';
+    }
+  });
+
   // Sub-chart Y-axis zoom (scroll on chart = zoom Y scale)
   var subMap={'vca':'vol','rca':'rsi','dca':'macd'};
   ['vca','rca','dca'].forEach(function(id){
@@ -1320,6 +1533,14 @@ function bindEvents(){
   mc.addEventListener('mousemove',onMouseMove);
   mc.addEventListener('mouseup',onMouseUp);
   mc.addEventListener('mouseleave',onMouseLeave);
+  // Double-click right axis = reset Y zoom
+  mc.addEventListener('dblclick',function(e){
+    var rect=mc.getBoundingClientRect();
+    if(e.clientX-rect.left > rect.width-80){
+      YZOOM.main=1.0;
+      if(gCandles.length)redraw();
+    }
+  });
   // Touch support
   var touchStart=null;
   mc.addEventListener('touchstart',function(e){e.preventDefault();touchStart={x:e.touches[0].clientX,viewStart:VIEW.start,viewEnd:VIEW.end};});
@@ -1461,7 +1682,7 @@ function loadData(){
     log('!!! 失敗: '+e.message,'err');setTime('失敗');setStatus(false);
   });
 }
-function switchCoin(c,el){coin=c;document.querySelectorAll('.ctab').forEach(function(b){b.classList.remove('on');});el.classList.add('on');saveSettings();if(_ws){_ws.close();_ws=null;_wsSymbol='';}loadData();}
+function switchCoin(c,el){coin=c;var lbl=document.getElementById('coin-sym-lbl');if(lbl)lbl.textContent=c;saveSettings();if(_ws){_ws.close();_ws=null;_wsSymbol='';}loadData();}
 function switchIv(interval,el){iv=interval;document.querySelectorAll('.itab').forEach(function(b){b.classList.remove('on');});el.classList.add('on');saveSettings();loadData();}
 
 // ═══ WEBSOCKET REAL-TIME PRICE ══════════════════════
@@ -1567,8 +1788,8 @@ function updateFearGreed(d) {
 
 // ═══ FUNDING RATE ════════════════════════════════════
 function fetchFundingRate(c) {
-  var sym = c === 'BTC' ? 'BTCUSDT' : 'ETHUSDT';
-  var okxSym = c === 'BTC' ? 'BTC-USDT-SWAP' : 'ETH-USDT-SWAP';
+  var sym = c + 'USDT';
+  var okxSym = c + '-USDT-SWAP';
   var p1 = tfetch('https://api.bybit.com/v5/market/funding/history?category=linear&symbol='+sym+'&limit=1', 6000)
     .then(function(r) {
       if (!r.result||!r.result.list||!r.result.list.length) throw new Error('no data');
@@ -1999,6 +2220,19 @@ function initResizeHandles() {
   });
 }
 
+
+// ═══ COIN DROPDOWN ═══════════════════════════════════
+var _favCoins = ['BTC','ETH']; // default favorites
+var _dropOpen = false;
+
+function loadFavs() {
+  try { var r=localStorage.getItem('cl_favs'); if(r)_favCoins=JSON.parse(r); } catch(e){}
+}
+function saveFavs() {
+  try { localStorage.setItem('cl_favs',JSON.stringify(_favCoins)); } catch(e){}
+}
+function isFav(sym) { return _favCoins.indexOf(sym) !== -1; }
+
 // ═══ COLLAPSIBLE SECTIONS ══════════════════════════
 function toggleSec(id) {
   var sec=document.getElementById(id),body=document.getElementById(id+'-body');
@@ -2070,6 +2304,9 @@ function applyFontScale(){
     '#glbl{font-size:'+(20*s).toFixed(1)+'px!important}',
     '#hdr-fg-num{font-size:'+(14*s).toFixed(1)+'px!important}',
     '#hdr-fg-txt{font-size:'+(8*s).toFixed(1)+'px!important}',
+    '#coin-btn{font-size:'+(13*s).toFixed(1)+'px!important}',
+    '.coin-item{font-size:'+(11*s).toFixed(1)+'px!important}',
+    '.coin-name{font-size:'+(10*s).toFixed(1)+'px!important}',
     '.alert-toast{font-size:'+(11*s).toFixed(1)+'px!important}',
     '.leg-item{font-size:'+(8*s).toFixed(1)+'px!important}',
     '#pred-rr{font-size:'+(9*s).toFixed(1)+'px!important}',
@@ -2123,7 +2360,7 @@ function readSettings(){
 }
 function applyPreSettings(s){
   if(!s)return;
-  if(s.coin&&CB_PROD[s.coin]){coin=s.coin;document.querySelectorAll('.ctab').forEach(function(b){b.classList.toggle('on',b.textContent.trim().indexOf(coin)===0);});}
+  if(s.coin){coin=s.coin;var lbl=document.getElementById('coin-btn-label');if(lbl)lbl.textContent=coin+'/USD';}
   if(s.iv){iv=s.iv;document.querySelectorAll('.itab').forEach(function(b){b.classList.toggle('on',b.textContent.trim()===iv.toUpperCase()||b.textContent.trim()===iv);});}
 }
 function applyPostSettings(s){
@@ -2163,8 +2400,10 @@ function applyPostSettings(s){
 
 // ═══ INIT ════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',function(){
+  loadFavs();
   log('CryptoLens 啟動','ok');
   bindEvents();
+  renderCoinList('');
   bindKeyboard();
   initResizeHandles();
   // Read settings SYNCHRONOUSLY - no async, no blocking
