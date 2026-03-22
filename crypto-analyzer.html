@@ -20,6 +20,27 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'Syne',sa
 .sep{width:1px;height:22px;background:var(--bd);}
 /* Coin Selector */
 #coin-wrap{position:relative;}
+#iv-wrap{position:relative;display:inline-flex;align-items:center;}
+#iv-btn{display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:4px;
+  border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;min-width:60px;justify-content:space-between;}
+#iv-btn:hover{background:var(--bg3);}
+#iv-btn .iv-arrow{font-size:9px;color:var(--t3);}
+#iv-dropdown{position:absolute;top:calc(100% + 4px);left:0;z-index:9999;width:200px;
+  background:var(--bg2);border:1px solid var(--bd);border-radius:6px;
+  box-shadow:0 8px 24px rgba(0,0,0,.6);display:none;flex-direction:column;}
+#iv-dropdown.open{display:flex;}
+#iv-list{padding:6px 0;overflow-y:auto;max-height:320px;}
+#iv-list::-webkit-scrollbar{width:3px;}
+#iv-list::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+.iv-item{display:flex;align-items:center;gap:8px;padding:7px 10px;cursor:pointer;transition:background .1s;}
+.iv-item:hover{background:var(--bg3);}
+.iv-item.active{background:rgba(88,166,255,.1);}
+.iv-lbl{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:var(--tx);min-width:36px;}
+.iv-zh{font-size:10px;color:var(--t2);flex:1;}
+.iv-star{font-size:13px;cursor:pointer;color:var(--t3);padding:0 2px;flex-shrink:0;}
+.iv-star.fav{color:var(--yellow);}
+.iv-fav-sep{height:1px;background:var(--bd);margin:4px 0;}
 #coin-btn{display:flex;align-items:center;gap:5px;padding:3px 10px;border-radius:4px;border:1px solid var(--bd);background:transparent;color:var(--tx);cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;min-width:110px;justify-content:space-between;}
 #coin-btn:hover{background:var(--bg3);}
 #coin-btn .coin-arrow{font-size:9px;color:var(--t3);}
@@ -55,6 +76,10 @@ html,body{height:100%;background:var(--bg);color:var(--tx);font-family:'Syne',sa
 #main{display:flex;height:calc(100vh - 52px);overflow:hidden;}
 #charts{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;}
 #side{width:310px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;min-height:0;transition:width .2s ease;}
+#side-scroll{flex:1;overflow-y:scroll;overflow-x:hidden;min-height:0;}
+#side-scroll::-webkit-scrollbar{width:4px;}
+#side-scroll::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
+#side-scroll::-webkit-scrollbar-thumb:hover{background:var(--t3);}
 #side.hidden{width:0;border-left:none;overflow:hidden;}
 /* Side toggle button */
 #side-toggle{position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:100;
@@ -171,7 +196,7 @@ canvas{display:block;cursor:crosshair;}
 .stitle:hover{color:var(--t2);}
 .stitle .sarr{font-size:12px;opacity:.6;transition:transform .2s;margin-left:4px;}
 .sec.collapsed .sarr{transform:rotate(-90deg);}
-.sec-body{overflow:hidden;transition:max-height .25s ease, opacity .2s;}
+.sec-body{overflow:hidden;transition:max-height .3s ease, opacity .2s;}
 .sec.collapsed .sec-body{max-height:0!important;opacity:0;}
 .stitle2{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--t3);
   padding:0;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;}
@@ -179,7 +204,7 @@ canvas{display:block;cursor:crosshair;}
 #slist-wrap{overflow:hidden;transition:max-height .25s ease, opacity .2s;}
 #slist-wrap.collapsed{max-height:0!important;opacity:0;}
 #slist-hdr{padding:8px 11px 4px;border-bottom:1px solid var(--bd);}
-#slist{overflow-y:auto;padding:3px 11px 11px;}
+#slist{padding:3px 11px 11px;}
 #slist::-webkit-scrollbar{width:3px;}#slist::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
 .si{display:flex;align-items:center;padding:6px 8px;border-radius:5px;margin-bottom:3px;background:var(--bg3);}
 .sn{font-size:12px;color:var(--t2);flex:1;}.sv{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t3);margin-right:5px;min-width:58px;text-align:right;}
@@ -235,13 +260,22 @@ canvas{display:block;cursor:crosshair;}
     </div>
   </div>
   <div class="sep"></div>
-  <div style="display:flex;gap:2px;">
-    <button class="itab" onclick="switchIv('15m',this)">15m</button>
-    <button class="itab on" onclick="switchIv('1h',this)">1H</button>
-    <button class="itab" onclick="switchIv('4h',this)">4H</button>
-    <button class="itab" onclick="switchIv('1d',this)">1D</button>
+  <div id="iv-wrap">
+    <button id="iv-btn" onclick="toggleIvDrop(event)">
+      <span id="iv-btn-label">1H</span>
+      <span class="iv-arrow">▼</span>
+    </button>
+    <div id="iv-dropdown">
+      <div id="iv-list"></div>
+    </div>
   </div>
-  <div id="cur">--<span id="ws-dot"></span></div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+    <div id="coin-name-lbl" style="display:flex;flex-direction:column;align-items:flex-end;line-height:1.2;">
+      <span id="coin-zh-lbl" style="font-size:13px;font-weight:800;color:var(--tx);font-family:'Syne',sans-serif;">比特幣</span>
+      <span id="coin-en-lbl" style="font-size:10px;color:var(--t2);font-family:'JetBrains Mono',monospace;">Bitcoin</span>
+    </div>
+    <div id="cur">--<span id="ws-dot"></span></div>
+  </div>
   <div id="chg" class="neu">--</div>
   <div id="utxt" style="display:none">--</div>
   <div id="dot"></div>
@@ -258,15 +292,7 @@ canvas{display:block;cursor:crosshair;}
     <div class="carea" id="mca">
       <div class="clbl">K線 · MA · BB · 預測</div>
       <div id="zoom-info"></div>
-      <div id="chart-legend">
-        <div class="leg-item"><div class="leg-dot" style="background:#ffa657"></div>MA20</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#58a6ff"></div>MA50</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#ff7b72"></div>MA200</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#39d353;border-top:1px dashed #39d353;background:none;border-bottom:none;border-left:none;border-right:none;width:16px;height:0;border-top-style:dashed;"></div>EMA9</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#e3b341;height:0;border-top:1px dashed #e3b341;"></div>EMA21</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#bc8cff;opacity:.5"></div>BB</div>
-        <div class="leg-item"><div class="leg-dot" style="background:rgba(255,255,255,.7);height:0;border-top:2px dashed rgba(255,255,255,.7);"></div>預測</div>
-      </div>
+
       <canvas id="mc"></canvas>
       <div id="xhair-tooltip"></div>
     </div>
@@ -288,10 +314,11 @@ canvas{display:block;cursor:crosshair;}
   </div>
 
   <div id="side">
+    <div id="side-scroll">
     <!-- 綜合面板：趨勢評分 + 恐懼貪婪 -->
     <div class="sec" id="sec-top">
       <div class="stitle" onclick="toggleSec('sec-top')">市場概況<span class="sarr">▾</span></div>
-      <div class="sec-body" id="sec-top-body" style="max-height:200px;">
+      <div class="sec-body" id="sec-top-body" style="max-height:2000px;">
         <div style="display:flex;align-items:center;gap:10px;padding:4px 0 6px;">
           <div>
             <div id="glbl" style="font-size:22px;font-weight:800;color:var(--t2);line-height:1;">--</div>
@@ -311,7 +338,7 @@ canvas{display:block;cursor:crosshair;}
     <!-- Long/Short Ratio -->
     <div id="ls-sec" class="sec">
       <div class="stitle" onclick="toggleSec('ls-sec')">多空比例（期貨持倉）<span class="sarr">▾</span></div>
-      <div class="sec-body" id="ls-sec-body" style="max-height:120px;">
+      <div class="sec-body" id="ls-sec-body" style="max-height:2000px;">
       <div class="ls-bar-wrap">
         <div class="ls-long" id="ls-long-bar" style="width:50%"><span class="ls-pct" id="ls-long-pct">--</span></div>
         <div class="ls-short" id="ls-short-bar"><span class="ls-pct" id="ls-short-pct">--</span></div>
@@ -329,7 +356,7 @@ canvas{display:block;cursor:crosshair;}
     <!-- Orderbook -->
     <div id="ob-sec" class="sec">
       <div class="stitle" onclick="toggleSec('ob-sec')">Orderbook 掛單牆<span class="sarr">▾</span></div>
-      <div class="sec-body" id="ob-sec-body" style="max-height:130px;">
+      <div class="sec-body" id="ob-sec-body" style="max-height:2000px;">
         <div class="ob-bar-wrap">
           <div class="ob-bid" id="ob-bid-bar" style="width:50%"><span class="ob-pct" id="ob-bid-pct">--</span></div>
           <div class="ob-ask" id="ob-ask-bar"><span class="ob-pct" id="ob-ask-pct">--</span></div>
@@ -344,7 +371,7 @@ canvas{display:block;cursor:crosshair;}
 
     <div class="sec" id="sec-pred">
       <div class="stitle" onclick="toggleSec('sec-pred')">未來 12-24H 預測<span class="sarr">▾</span></div>
-      <div class="sec-body" id="sec-pred-body" style="max-height:420px;">
+      <div class="sec-body" id="sec-pred-body" style="max-height:2000px;">
       <!-- 方向判斷大標題 -->
       <div id="pdir" class="pdir neu" style="margin-bottom:8px;">⟳ 分析中...</div>
 
@@ -397,6 +424,7 @@ canvas{display:block;cursor:crosshair;}
       <div class="stitle2" onclick="toggleSlist()">指標信號 (14項)<span class="sarr" id="slist-arr">▾</span></div>
     </div>
     <div id="slist-wrap"><div id="slist"></div></div>
+    </div><!-- /side-scroll -->
     <!-- Toggle Panel -->
     <div id="tog-panel">
       <div class="tog-row">
@@ -486,52 +514,79 @@ function tfetch(url,timeout){
 // ═══ CONFIG ═════════════════════════════════════════
 var COINBASE='https://api.exchange.coinbase.com';
 var KRAKEN='https://api.kraken.com/0/public';
-var CB_GRAN={'15m':900,'1h':3600,'4h':21600,'1d':86400};
-var KR_INT={'15m':15,'1h':60,'4h':240,'1d':1440};
+var CB_GRAN={'1m':60,'5m':300,'15m':900,'1h':3600,'4h':21600,'6h':21600,'1d':86400};
+var KR_INT={'1m':1,'3m':3,'5m':5,'15m':15,'30m':30,'1h':60,'2h':120,'4h':240,'6h':360,'12h':720,'1d':1440,'3d':4320,'1w':10080};
 var coin='BTC',iv='1h';
 
 // ── All supported coins ──
 var ALL_COINS=[
-  {sym:'BTC', name:'Bitcoin',       cb:'BTC-USD',  kr:'XBTUSD'},
-  {sym:'ETH', name:'Ethereum',      cb:'ETH-USD',  kr:'ETHUSD'},
-  {sym:'SOL', name:'Solana',        cb:'SOL-USD',  kr:'SOLUSD'},
-  {sym:'BNB', name:'BNB',           cb:'BNB-USD',  kr:'BNBUSD'},
-  {sym:'XRP', name:'XRP',           cb:'XRP-USD',  kr:'XRPUSD'},
-  {sym:'ADA', name:'Cardano',       cb:'ADA-USD',  kr:'ADAUSD'},
-  {sym:'AVAX',name:'Avalanche',     cb:'AVAX-USD', kr:'AVAXUSD'},
-  {sym:'DOGE',name:'Dogecoin',      cb:'DOGE-USD', kr:'DOGEUSD'},
-  {sym:'MATIC',name:'Polygon',      cb:'MATIC-USD',kr:'MATICUSD'},
-  {sym:'DOT', name:'Polkadot',      cb:'DOT-USD',  kr:'DOTUSD'},
-  {sym:'LINK',name:'Chainlink',     cb:'LINK-USD', kr:'LINKUSD'},
-  {sym:'UNI', name:'Uniswap',       cb:'UNI-USD',  kr:'UNIUSD'},
-  {sym:'LTC', name:'Litecoin',      cb:'LTC-USD',  kr:'LTCUSD'},
-  {sym:'ATOM',name:'Cosmos',        cb:'ATOM-USD', kr:'ATOMUSD'},
-  {sym:'ETC', name:'Ethereum Classic',cb:'ETC-USD',kr:'ETCUSD'},
-  {sym:'XLM', name:'Stellar',       cb:'XLM-USD',  kr:'XLMUSD'},
-  {sym:'FIL', name:'Filecoin',      cb:'FIL-USD',  kr:'FILUSD'},
-  {sym:'APT', name:'Aptos',         cb:'APT-USD',  kr:'APTUSD'},
-  {sym:'ARB', name:'Arbitrum',      cb:'ARB-USD',  kr:'ARBUSD'},
-  {sym:'OP',  name:'Optimism',      cb:'OP-USD',   kr:'OPUSD'},
-  {sym:'SUI', name:'Sui',           cb:'SUI-USD',  kr:'SUIUSD'},
-  {sym:'NEAR',name:'NEAR Protocol', cb:'NEAR-USD', kr:'NEARUSD'},
-  {sym:'INJ', name:'Injective',     cb:'INJ-USD',  kr:'INJUSD'},
-  {sym:'FTM', name:'Fantom',        cb:'FTM-USD',  kr:'FTMUSD'},
-  {sym:'SAND',name:'The Sandbox',   cb:'SAND-USD', kr:'SANDUSD'},
-  {sym:'MANA',name:'Decentraland',  cb:'MANA-USD', kr:'MANAUSD'},
-  {sym:'AXS', name:'Axie Infinity', cb:'AXS-USD',  kr:'AXSUSD'},
-  {sym:'ALGO',name:'Algorand',      cb:'ALGO-USD', kr:'ALGOUSD'},
-  {sym:'VET', name:'VeChain',       cb:'VET-USD',  kr:'VETUSD'},
-  {sym:'ICP', name:'Internet Computer',cb:'ICP-USD',kr:'ICPUSD'},
-  {sym:'GRT', name:'The Graph',     cb:'GRT-USD',  kr:'GRTUSD'},
-  {sym:'AAVE',name:'Aave',          cb:'AAVE-USD', kr:'AAVEUSD'},
-  {sym:'MKR', name:'Maker',         cb:'MKR-USD',  kr:'MKRUSD'},
-  {sym:'SNX', name:'Synthetix',     cb:'SNX-USD',  kr:'SNXUSD'},
-  {sym:'CRV', name:'Curve',         cb:'CRV-USD',  kr:'CRVUSD'},
-  {sym:'LDO', name:'Lido DAO',      cb:'LDO-USD',  kr:'LDOUSD'},
-  {sym:'PEPE',name:'Pepe',          cb:'PEPE-USD', kr:'PEPEUSD'},
-  {sym:'WIF', name:'dogwifhat',     cb:'WIF-USD',  kr:'WIFUSD'},
-  {sym:'BONK',name:'Bonk',          cb:'BONK-USD', kr:'BONKUSD'},
-  {sym:'TRX', name:'TRON',          cb:'TRX-USD',  kr:'TRXUSD'},
+  {sym:'BTC',  name:'Bitcoin',           zh:'比特幣',   cb:'BTC-USD',  kr:'XBTUSD'},
+  {sym:'ETH',  name:'Ethereum',          zh:'以太坊',   cb:'ETH-USD',  kr:'ETHUSD'},
+  {sym:'SOL',  name:'Solana',            zh:'索拉納',   cb:'SOL-USD',  kr:'SOLUSD'},
+  {sym:'XRP',  name:'Ripple',            zh:'瑞波幣',   cb:'XRP-USD',  kr:'XRPUSD'},
+  {sym:'BNB',  name:'BNB',               zh:'幣安幣',   cb:'BNB-USD',  kr:'BNBUSD'},
+  {sym:'DOGE', name:'Dogecoin',          zh:'狗狗幣',   cb:'DOGE-USD', kr:'DOGEUSD'},
+  {sym:'ADA',  name:'Cardano',           zh:'卡爾達諾', cb:'ADA-USD',  kr:'ADAUSD'},
+  {sym:'AVAX', name:'Avalanche',         zh:'雪崩',     cb:'AVAX-USD', kr:'AVAXUSD'},
+  {sym:'LINK', name:'Chainlink',         zh:'鏈鏈',     cb:'LINK-USD', kr:'LINKUSD'},
+  {sym:'DOT',  name:'Polkadot',          zh:'波卡',     cb:'DOT-USD',  kr:'DOTUSD'},
+  {sym:'MATIC',name:'Polygon',           zh:'多邊形',   cb:'MATIC-USD',kr:'MATICUSD'},
+  {sym:'LTC',  name:'Litecoin',          zh:'萊特幣',   cb:'LTC-USD',  kr:'LTCUSD'},
+  {sym:'BCH',  name:'Bitcoin Cash',      zh:'比特現金', cb:'BCH-USD',  kr:'BCHUSD'},
+  {sym:'UNI',  name:'Uniswap',           zh:'去中心交易',cb:'UNI-USD', kr:'UNIUSD'},
+  {sym:'ATOM', name:'Cosmos',            zh:'宇宙',     cb:'ATOM-USD', kr:'ATOMUSD'},
+  {sym:'XLM',  name:'Stellar',           zh:'恆星幣',   cb:'XLM-USD',  kr:'XLMUSD'},
+  {sym:'ETC',  name:'Ethereum Classic',  zh:'以太經典', cb:'ETC-USD',  kr:'ETCUSD'},
+  {sym:'FIL',  name:'Filecoin',          zh:'文件幣',   cb:'FIL-USD',  kr:'FILUSD'},
+  {sym:'APT',  name:'Aptos',             zh:'阿普托斯', cb:'APT-USD',  kr:'APTUSD'},
+  {sym:'ARB',  name:'Arbitrum',          zh:'仲裁',     cb:'ARB-USD',  kr:'ARBUSD'},
+  {sym:'OP',   name:'Optimism',          zh:'樂觀',     cb:'OP-USD',   kr:'OPUSD'},
+  {sym:'NEAR', name:'NEAR Protocol',     zh:'近端協議', cb:'NEAR-USD', kr:'NEARUSD'},
+  {sym:'INJ',  name:'Injective',         zh:'注入',     cb:'INJ-USD',  kr:'INJUSD'},
+  {sym:'SUI',  name:'Sui',               zh:'Sui',      cb:'SUI-USD',  kr:'SUIUSD'},
+  {sym:'PEPE', name:'Pepe',              zh:'青蛙幣',   cb:'PEPE-USD', kr:'PEPEUSD'},
+  {sym:'WIF',  name:'dogwifhat',         zh:'狗帽幣',   cb:'WIF-USD',  kr:'WIFUSD'},
+  {sym:'FLOKI',name:'Floki',             zh:'弗洛基',   cb:'FLOKI-USD',kr:'FLOKIUSD'},
+  {sym:'BONK', name:'Bonk',              zh:'邦克',     cb:'BONK-USD', kr:'BONKUSD'},
+  {sym:'FET',  name:'Fetch.ai',          zh:'人工智能', cb:'FET-USD',  kr:'FETUSD'},
+  {sym:'RENDER',name:'Render',           zh:'渲染',     cb:'RENDER-USD',kr:'RENDERUSD'},
+  {sym:'GRT',  name:'The Graph',         zh:'圖形',     cb:'GRT-USD',  kr:'GRTUSD'},
+  {sym:'SAND', name:'The Sandbox',       zh:'沙盒',     cb:'SAND-USD', kr:'SANDUSD'},
+  {sym:'MANA', name:'Decentraland',      zh:'去中心地', cb:'MANA-USD', kr:'MANAUSD'},
+  {sym:'AXS',  name:'Axie Infinity',     zh:'軸無限',   cb:'AXS-USD',  kr:'AXSUSD'},
+  {sym:'CRV',  name:'Curve DAO',         zh:'曲線',     cb:'CRV-USD',  kr:'CRVUSD'},
+  {sym:'AAVE', name:'Aave',              zh:'阿維',     cb:'AAVE-USD', kr:'AAVEUSD'},
+  {sym:'MKR',  name:'Maker',             zh:'創客',     cb:'MKR-USD',  kr:'MKRUSD'},
+  {sym:'SNX',  name:'Synthetix',         zh:'合成器',   cb:'SNX-USD',  kr:'SNXUSD'},
+  {sym:'COMP', name:'Compound',          zh:'複合',     cb:'COMP-USD', kr:'COMPUSD'},
+  {sym:'LDO',  name:'Lido DAO',          zh:'利多',     cb:'LDO-USD',  kr:'LDOUSD'},
+  {sym:'IMX',  name:'Immutable',         zh:'不可變',   cb:'IMX-USD',  kr:'IMXUSD'},
+  {sym:'STX',  name:'Stacks',            zh:'棧',       cb:'STX-USD',  kr:'STXUSD'},
+  {sym:'ALGO', name:'Algorand',          zh:'算法幣',   cb:'ALGO-USD', kr:'ALGOUSD'},
+  {sym:'VET',  name:'VeChain',           zh:'唯鏈',     cb:'VET-USD',  kr:'VETUSD'},
+  {sym:'HBAR', name:'Hedera',            zh:'海德拉',   cb:'HBAR-USD', kr:'HBARUSD'},
+  {sym:'ICP',  name:'Internet Computer', zh:'互聯網電腦',cb:'ICP-USD', kr:'ICPUSD'},
+  {sym:'EOS',  name:'EOS',               zh:'EOS',      cb:'EOS-USD',  kr:'EOSUSD'},
+  {sym:'FLOW', name:'Flow',              zh:'流量',     cb:'FLOW-USD', kr:'FLOWUSD'},
+  {sym:'CHZ',  name:'Chiliz',            zh:'辣椒',     cb:'CHZ-USD',  kr:'CHZUSD'},
+  {sym:'THETA',name:'Theta Network',     zh:'西塔',     cb:'THETA-USD',kr:'THETAUSD'},
+  {sym:'ZEC',  name:'Zcash',             zh:'零現金',   cb:'ZEC-USD',  kr:'ZECUSD'},
+  {sym:'XMR',  name:'Monero',            zh:'門羅幣',   cb:'XMR-USD',  kr:'XMRUSD'},
+  {sym:'DASH', name:'Dash',              zh:'達世幣',   cb:'DASH-USD', kr:'DASHUSD'},
+  {sym:'ENS',  name:'ENS',               zh:'以太域名', cb:'ENS-USD',  kr:'ENSUSD'},
+  {sym:'1INCH',name:'1inch',             zh:'一英寸',   cb:'1INCH-USD',kr:'1INCHUSD'},
+  {sym:'BAT',  name:'Basic Attention',   zh:'基本注意', cb:'BAT-USD',  kr:'BATUSD'},
+  {sym:'ZRX',  name:'0x Protocol',       zh:'零協議',   cb:'ZRX-USD',  kr:'ZRXUSD'},
+  {sym:'SUSHI',name:'SushiSwap',         zh:'壽司',     cb:'SUSHI-USD',kr:'SUSHIUSD'},
+  {sym:'YFI',  name:'Yearn Finance',     zh:'渴望金融', cb:'YFI-USD',  kr:'YFIUSD'},
+  {sym:'DYDX', name:'dYdX',              zh:'去中心衍生',cb:'DYDX-USD',kr:'DYDXUSD'},
+  {sym:'ANKR', name:'Ankr',              zh:'安克',     cb:'ANKR-USD', kr:'ANKRUSD'},
+  {sym:'JASMY',name:'JasmyCoin',         zh:'茉莉幣',   cb:'JASMY-USD',kr:'JASMYUSD'},
+  {sym:'PYTH', name:'Pyth Network',      zh:'皮斯',     cb:'PYTH-USD', kr:'PYTHUSD'},
+  {sym:'JTO',  name:'Jito',              zh:'吉托',     cb:'JTO-USD',  kr:'JTOUSD'},
+  {sym:'JUP',  name:'Jupiter',           zh:'木星',     cb:'JUP-USD',  kr:'JUPUSD'},
+  {sym:'TIA',  name:'Celestia',          zh:'天體',     cb:'TIA-USD',  kr:'TIAUSD'},
+  {sym:'SEI',  name:'Sei',               zh:'Sei',      cb:'SEI-USD',  kr:'SEIUSD'},
 ];
 
 // Dynamic CB_PROD and KR_PAIR from coin sym
@@ -590,6 +645,13 @@ function selectCoin(el){
   var sym=el.getAttribute('data-sym');
   coin=sym;
   var lbl=document.getElementById('coin-btn-label');if(lbl)lbl.textContent=sym+'/USD';
+  var cObj=ALL_COINS.find(function(x){return x.sym===sym;});
+  if(cObj){
+    var zhEl=document.getElementById('coin-zh-lbl');
+    var enEl=document.getElementById('coin-en-lbl');
+    if(zhEl)zhEl.textContent=cObj.zh||cObj.name;
+    if(enEl)enEl.textContent=cObj.name;
+  }
   closeCoinDropdown();
   // 立刻清空舊資料，避免切換時顯示舊幣的數據
   gCandles=[];gAnalysis=null;_mtfData=null;
@@ -606,6 +668,12 @@ function selectCoin(el){
   saveSettings();
   if(_ws){_ws.close();_ws=null;_wsSymbol='';}
   loadData();
+}
+function toggleFav(sym) {
+  var idx=_favCoins.indexOf(sym);
+  if(idx!==-1)_favCoins.splice(idx,1); else _favCoins.push(sym);
+  saveFavs();
+  renderCoinList(document.getElementById('coin-search')?document.getElementById('coin-search').value:'');
 }
 function toggleFavEl(el){
   var sym=el.getAttribute('data-sym');
@@ -798,7 +866,7 @@ function getMTFConfluence(cur, mtf) {
 
 function fetchCoinbase(c,interval){
   log('[Coinbase] 建立請求...','warn');
-  var gran=CB_GRAN[interval]||3600;
+  var gran=CB_GRAN_EX[interval]||CB_GRAN[interval]||3600;
   // Coinbase max 300 candles per request
   var limit=Math.min(300,350);
   var end=new Date(),start=new Date(end.getTime()-limit*gran*1000);
@@ -810,7 +878,16 @@ function fetchCoinbase(c,interval){
 }
 function fetchKraken(c,interval){
   log('[Kraken] 備援...','warn');
-  var url=KRAKEN+'/OHLC?pair='+KR_PAIR[c]+'&interval='+(KR_INT[interval]||60);
+  var krPair=getCoinKR(c)||c+'USD';
+  var krInterval=KR_INT[interval]||KR_INT_EX[interval]||60;
+  var baseUrl=KRAKEN+'/OHLC?pair='+krPair+'&interval='+krInterval;
+  // Try direct first, then proxy fallbacks
+  var isLocal=window.location.protocol==='file:';
+  var url=baseUrl; // GitHub Pages: direct access works
+  if(isLocal){
+    // Local file:// needs proxy - try multiple
+    url='https://api.allorigins.win/raw?url='+encodeURIComponent(baseUrl);
+  }
   return tfetch(url,12000).then(function(raw){
     if(raw.error&&raw.error.length)throw new Error(raw.error[0]);
     var key=Object.keys(raw.result).filter(function(k){return k!=='last';})[0];
@@ -879,7 +956,17 @@ function updateLS(data) {
   if (lp > 70) lbar.style.background = 'linear-gradient(90deg,rgba(255,165,0,.9),rgba(255,165,0,.7))'; // over-heated warning
 }
 
-function fetchCandles(c,interval){return fetchCoinbase(c,interval).catch(function(e){log('[切換Kraken] '+e.message,'warn');return fetchKraken(c,interval);});}
+function fetchCandles(c,interval){
+  var cbGran=CB_GRAN_EX[interval]||CB_GRAN[interval];
+  if(!cbGran){
+    log('[資料] '+interval+' 使用Kraken','info');
+    return fetchKraken(c,interval);
+  }
+  return fetchCoinbase(c,interval).catch(function(e){
+    log('[切換Kraken] '+e.message,'warn');
+    return fetchKraken(c,interval);
+  });
+}
 function fetchStats(c){
   return tfetch(COINBASE+'/products/'+getCoinCB(c)+'/stats').catch(function(){
     return tfetch(KRAKEN+'/Ticker?pair='+getCoinKR(c)).then(function(r){var k=Object.keys(r.result)[0],t=r.result[k];return{last:+t.c[0],open:+t.o};});
@@ -1683,24 +1770,21 @@ function loadData(){
   });
 }
 function switchCoin(c,el){coin=c;var lbl=document.getElementById('coin-sym-lbl');if(lbl)lbl.textContent=c;saveSettings();if(_ws){_ws.close();_ws=null;_wsSymbol='';}loadData();}
-function switchIv(interval,el){iv=interval;document.querySelectorAll('.itab').forEach(function(b){b.classList.remove('on');});el.classList.add('on');saveSettings();loadData();}
+function switchIv(interval,el){iv=interval;saveSettings();loadData();} // kept for compat
 
 // ═══ WEBSOCKET REAL-TIME PRICE ══════════════════════
 var _ws = null, _wsSymbol = '';
 function startWS() {
-  var sym = coin === 'BTC' ? 'btcusdt' : 'ethusdt';
-  if (_ws && _wsSymbol === sym) return;
-  if (_ws) { try { _ws.close(); } catch(e) {} }
-  _wsSymbol = sym;
-  var wsDot = document.getElementById('ws-dot');
-  // Try Binance WebSocket first (sometimes works in TW)
-  // Fallback: Coinbase WebSocket
+  var prod = getCoinCB(coin); // e.g. 'BTC-USD', 'XRP-USD'
+  if (_ws && _wsSymbol === prod) return;
+  if (_ws) { try { _ws.close(); } catch(e) {} _ws=null; }
+  _wsSymbol = prod;
   tryWS_Coinbase();
 }
 
 function tryWS_Coinbase() {
   try {
-    var prod = coin === 'BTC' ? 'BTC-USD' : 'ETH-USD';
+    var prod = getCoinCB(coin);
     var ws = new WebSocket('wss://advanced-trade-ws.coinbase.com/v1');
     var wsDot = document.getElementById('ws-dot');
     var heartbeat;
@@ -2233,6 +2317,86 @@ function saveFavs() {
 }
 function isFav(sym) { return _favCoins.indexOf(sym) !== -1; }
 
+var ALL_IVS=[["1m", "1\u5206", "1m"], ["3m", "3\u5206", "3m"], ["5m", "5\u5206", "5m"], ["15m", "15\u5206", "15m"], ["30m", "30\u5206", "30m"], ["1h", "1\u6642", "1H"], ["2h", "2\u6642", "2H"], ["4h", "4\u6642", "4H"], ["6h", "6\u6642", "6H"], ["12h", "12\u6642", "12H"], ["1d", "\u65e5\u7dda", "1D"], ["3d", "3\u65e5", "3D"], ["1w", "\u9031\u7dda", "1W"]];
+// Coinbase only supports: 60,300,900,3600,21600,86400
+// Map unsupported intervals to null (use Kraken instead)
+var CB_GRAN_EX={"1m":60,"3m":null,"5m":300,"15m":900,"30m":null,"1h":3600,"2h":null,"4h":21600,"6h":21600,"12h":null,"1d":86400,"3d":null,"1w":null};
+var KR_INT_EX={"1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30, "1h": 60, "2h": 120, "4h": 240, "6h": 360, "12h": 720, "1d": 1440, "3d": 4320, "1w": 10080};
+
+// ═══ INTERVAL DROPDOWN ═══════════════════════════════
+var _favIvs   = ['15m','1h','4h','1d'];
+var _ivDropOpen = false;
+
+function loadFavIvs() {
+  try{ var r=localStorage.getItem('cl_fav_ivs'); if(r)_favIvs=JSON.parse(r); }catch(e){}
+}
+function saveFavIvs() {
+  try{ localStorage.setItem('cl_fav_ivs',JSON.stringify(_favIvs)); }catch(e){}
+}
+function isIvFav(s) { return _favIvs.indexOf(s)!==-1; }
+function toggleIvFav(s,e) {
+  e.stopPropagation();
+  var idx=_favIvs.indexOf(s);
+  if(idx!==-1)_favIvs.splice(idx,1); else _favIvs.push(s);
+  saveFavIvs();
+  renderIvList();
+}
+
+function renderIvList() {
+  var list=document.getElementById('iv-list'); if(!list)return;
+  var favs=ALL_IVS.filter(function(x){return isIvFav(x[0]);});
+  var others=ALL_IVS.filter(function(x){return !isIvFav(x[0]);});
+  var html='';
+  if(favs.length){
+    favs.forEach(function(x){html+=ivItemHTML(x);});
+    if(others.length)html+='<div class="iv-fav-sep"></div>';
+  }
+  others.forEach(function(x){html+=ivItemHTML(x);});
+  list.innerHTML=html;
+}
+
+function ivItemHTML(x) {
+  var s=x[0],zh=x[1],lbl=x[2];
+  var active=iv===s?' active':'';
+  var fav=isIvFav(s);
+  var oc1="selectIv('"+s+"','"+lbl+"')";
+  var oc2="event.stopPropagation();toggleIvFav('"+s+"',event)";
+  return '<div class="iv-item'+active+'" onclick="'+oc1+'">' +
+    '<span class="iv-lbl">'+lbl+'</span>' +
+    '<span class="iv-zh">'+zh+'</span>' +
+    '<span class="iv-star'+(fav?' fav':'')+'" onclick="'+oc2+'">'+(fav?'★':'☆')+'</span>' +
+    '</div>';
+}
+
+function selectIv(s, lbl) {
+  iv = s;
+  // Update CB_GRAN and KR_INT
+  if(CB_GRAN_EX[s]) CB_GRAN[s] = CB_GRAN_EX[s];
+  if(KR_INT_EX[s])  KR_INT[s]  = KR_INT_EX[s];
+  var btnLbl=document.getElementById('iv-btn-label');
+  if(btnLbl)btnLbl.textContent=lbl;
+  closeIvDrop();
+  saveSettings();
+  loadData();
+}
+
+function toggleIvDrop(e) {
+  e.stopPropagation();
+  _ivDropOpen=!_ivDropOpen;
+  var dd=document.getElementById('iv-dropdown');
+  if(_ivDropOpen){dd.classList.add('open');renderIvList();}
+  else closeIvDrop();
+}
+function closeIvDrop() {
+  _ivDropOpen=false;
+  var dd=document.getElementById('iv-dropdown');
+  if(dd)dd.classList.remove('open');
+}
+document.addEventListener('click',function(e){
+  var wrap=document.getElementById('iv-wrap');
+  if(_ivDropOpen&&wrap&&!wrap.contains(e.target))closeIvDrop();
+});
+
 // ═══ COLLAPSIBLE SECTIONS ══════════════════════════
 function toggleSec(id) {
   var sec=document.getElementById(id),body=document.getElementById(id+'-body');
@@ -2249,13 +2413,31 @@ function toggleSlist() {
   saveSettings();
 }
 function initSecHeights() {
-  ['ls-sec-body','sec-pred-body','fr-sec-body','ob-sec-body'].forEach(function(id){
-    var el=document.getElementById(id);if(el)el.style.maxHeight=el.scrollHeight+'px';
+  // Expand - use large max-height so content flows to parent scroller
+  ['ls-sec-body','sec-pred-body','ob-sec-body','fr-sec-body'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.style.maxHeight='2000px';
   });
-  var g=document.getElementById('sec-top-body'),gs=document.getElementById('sec-top');
-  if(g&&gs){g.style.maxHeight=g.scrollHeight+'px';setTimeout(function(){gs.classList.add('collapsed');g.style.maxHeight='0';},50);}
+  // Collapse gauge by default
+  var gaugeBody=document.getElementById('sec-top-body');
+  var gaugeSec=document.getElementById('sec-top');
+  if(gaugeBody&&gaugeSec){
+    gaugeBody.style.maxHeight='2000px';
+    setTimeout(function(){
+      gaugeSec.classList.add('collapsed');
+      gaugeBody.style.maxHeight='0';
+    },50);
+  }
+  // Collapse signal list by default
   var sw=document.getElementById('slist-wrap'),arr=document.getElementById('slist-arr');
-  if(sw){sw.style.maxHeight=sw.scrollHeight+'px';setTimeout(function(){sw.classList.add('collapsed');sw.style.maxHeight='0';if(arr)arr.style.transform='rotate(-90deg)';},50);}
+  if(sw){
+    sw.style.maxHeight='2000px';
+    setTimeout(function(){
+      sw.classList.add('collapsed');
+      sw.style.maxHeight='0';
+      if(arr)arr.style.transform='rotate(-90deg)';
+    },50);
+  }
 }
 
 // ═══ FONT SIZE ══════════════════════════════════════
@@ -2304,6 +2486,8 @@ function applyFontScale(){
     '#glbl{font-size:'+(20*s).toFixed(1)+'px!important}',
     '#hdr-fg-num{font-size:'+(14*s).toFixed(1)+'px!important}',
     '#hdr-fg-txt{font-size:'+(8*s).toFixed(1)+'px!important}',
+    '#coin-zh-lbl{font-size:'+(13*s).toFixed(1)+'px!important}',
+    '#coin-en-lbl{font-size:'+(10*s).toFixed(1)+'px!important}',
     '#coin-btn{font-size:'+(13*s).toFixed(1)+'px!important}',
     '.coin-item{font-size:'+(11*s).toFixed(1)+'px!important}',
     '.coin-name{font-size:'+(10*s).toFixed(1)+'px!important}',
@@ -2361,7 +2545,12 @@ function readSettings(){
 function applyPreSettings(s){
   if(!s)return;
   if(s.coin){coin=s.coin;var lbl=document.getElementById('coin-btn-label');if(lbl)lbl.textContent=coin+'/USD';}
-  if(s.iv){iv=s.iv;document.querySelectorAll('.itab').forEach(function(b){b.classList.toggle('on',b.textContent.trim()===iv.toUpperCase()||b.textContent.trim()===iv);});}
+  if(s.iv){
+    iv=s.iv;
+    var ivObj=ALL_IVS?ALL_IVS.find(function(x){return x[0]===iv;}):null;
+    var ivLbl=document.getElementById('iv-btn-label');
+    if(ivLbl&&ivObj)ivLbl.textContent=ivObj[2];
+  }
 }
 function applyPostSettings(s){
   if(!s)return;
@@ -2392,7 +2581,7 @@ function applyPostSettings(s){
     initSecHeights();
     if(s.secStates)Object.keys(s.secStates).forEach(function(id){
       var collapsed=s.secStates[id];
-      if(id==='slist-wrap'){var wrap=document.getElementById('slist-wrap'),arr=document.getElementById('slist-arr');if(!wrap)return;wrap.classList.toggle('collapsed',collapsed);wrap.style.maxHeight=collapsed?'0':wrap.scrollHeight+'px';if(arr)arr.style.transform=collapsed?'rotate(-90deg)':'';}
+      if(id==='slist-wrap'){var wrap=document.getElementById('slist-wrap'),arr=document.getElementById('slist-arr');if(!wrap)return;wrap.classList.toggle('collapsed',collapsed);wrap.style.maxHeight=collapsed?'0':'2000px';if(arr)arr.style.transform=collapsed?'rotate(-90deg)':'';}
       else{var sec=document.getElementById(id),body=document.getElementById(id+'-body');if(!sec||!body)return;sec.classList.toggle('collapsed',collapsed);body.style.maxHeight=collapsed?'0':body.scrollHeight+'px';}
     });
   },100);
@@ -2401,6 +2590,7 @@ function applyPostSettings(s){
 // ═══ INIT ════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',function(){
   loadFavs();
+  loadFavIvs();
   log('CryptoLens 啟動','ok');
   bindEvents();
   renderCoinList('');
