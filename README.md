@@ -11,3 +11,5 @@
 - 結構化資料輸出（表格、圖表等）
 - 簡單前端 (HTML/JavaScript) 形態，無需安裝複雜伺服器
 
+https://tsouxian.github.io/freeCoinViewer/crypto-analyzer.html
+將此html下載也可以在本地端執行
