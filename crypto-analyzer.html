@@ -774,6 +774,8 @@ var gCandles=[],gAnalysis=null;
 
 // view state: indices into gCandles array (+ pred extension)
 var _userInteracted=false;
+var _streamingCandles=false;
+var _streamStart=-1,_streamEnd=-1; // locked view during stream
 var VIEW={start:0,end:0,dragging:false,dragStartX:0,dragStartView:0};
 var MIN_BARS=10;
 var YZOOM={vol:1.0,rsi:1.0,macd:1.0,main:1.0};
@@ -1155,21 +1157,24 @@ function fetchCoinbase(c, interval) {
     var candles = raw.map(function(k){
       return{time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};
     }).sort(function(a,b){return a.time-b.time;});
-    // Start background streaming of older data
-    setTimeout(function(){ streamOlderCandles(c,interval,gran,candles[0].time-1); },500);
+    // Lock view immediately before streaming starts
+    _streamingCandles = true;
+    _streamStart = VIEW.start;
+    _streamEnd   = VIEW.end;
+    streamOlderCandles(c,interval,gran,candles[0].time-1);
     return candles;
   });
 }
 
 function streamOlderCandles(c, interval, gran, beforeTs) {
-  // Stop if coin/iv changed
   if(c!==coin||interval!==iv) return;
-  // Stop if we have 1 year of data
   var maxBars={'60':8760,'300':8760,'900':8760,'3600':8760,'21600':1460,'86400':365}[String(gran)]||8760;
   if(gCandles.length >= maxBars) {
+    _streamingCandles=false;
     log('K線讀取完成 共'+gCandles.length+'根','ok');
-    // Save to IDB
     saveCandles(c, interval, gCandles);
+    try{gAnalysis=analyze(gCandles);}catch(e){}
+    drawMain();drawVolume(gCandles);drawRsi();drawMacd();
     return;
   }
 
@@ -1180,48 +1185,54 @@ function streamOlderCandles(c, interval, gran, beforeTs) {
     '&start='+new Date(startTs*1000).toISOString()+
     '&end='+new Date(endTs*1000).toISOString();
 
+  _streamingCandles=true;
   tfetch(url,12000).then(function(raw){
-    if(!Array.isArray(raw)||!raw.length) {
+    if(c!==coin||interval!==iv){_streamingCandles=false;return;}
+    if(!Array.isArray(raw)||!raw.length){
+      _streamingCandles=false;
       log('K線讀取完成 共'+gCandles.length+'根','ok');
       saveCandles(c, interval, gCandles);
       return;
     }
-    if(c!==coin||interval!==iv) return;
 
-    var older = raw.map(function(k){
+    var older=raw.map(function(k){
       return{time:+k[0],open:+k[3],high:+k[2],low:+k[1],close:+k[4],volume:+k[5]};
     }).sort(function(a,b){return a.time-b.time;});
 
-    // Prepend older candles
+    // Prepend without touching VIEW at all
     var seen={};
-    gCandles.forEach(function(c){seen[c.time]=true;});
-    var toAdd = older.filter(function(c){return !seen[c.time];});
-    if(toAdd.length) {
-      // Save current VIEW before prepending
-      var savedStart=VIEW.start, savedEnd=VIEW.end;
-      var wasAtEnd=(VIEW.end>=gCandles.length);
-      gCandles = toAdd.concat(gCandles);
-      setTime(gCandles.length+'根');
-      if(!_userInteracted){
-        // Lock view: shift start/end to keep same candles visible
-        VIEW.start = savedStart + toAdd.length;
-        VIEW.end   = savedEnd   + toAdd.length;
+    gCandles.forEach(function(k){seen[k.time]=true;});
+    var toAdd=older.filter(function(k){return !seen[k.time];});
+    if(toAdd.length){
+      gCandles=toAdd.concat(gCandles);
+      // Always shift VIEW to compensate for prepended bars
+      VIEW.start+=toAdd.length;
+      VIEW.end+=toAdd.length;
+      if(_streamStart>=0){
+        _streamStart+=toAdd.length;
+        _streamEnd+=toAdd.length;
       }
-      try{ gAnalysis=analyze(gCandles); }catch(e){}
-      if(gAnalysis) redraw();
+      setTime(gCandles.length+'根');
     }
 
-    var nextTs = older[0].time - 1;
-    if(nextTs>0) setTimeout(function(){ streamOlderCandles(c,interval,gran,nextTs); },500);
-    else {
+    var nextTs=older[0].time-1;
+    if(nextTs>0) streamOlderCandles(c,interval,gran,nextTs);
+    else{
+      _streamingCandles=false;
+      _streamStart=-1; _streamEnd=-1;
       log('K線讀取完成 共'+gCandles.length+'根','ok');
       saveCandles(c, interval, gCandles);
+      try{gAnalysis=analyze(gCandles);}catch(e){}
+      drawMain();drawVolume(gCandles);drawRsi();drawMacd();
     }
   }).catch(function(){
-    // On error, stop streaming
+    _streamingCandles=false;
     log('串流暫停 已有'+gCandles.length+'根','warn');
+    try{gAnalysis=analyze(gCandles);}catch(e){}
+    drawMain();drawVolume(gCandles);drawRsi();drawMacd();
   });
 }
+
 
 
 function fetchKraken(c,interval){
@@ -1507,13 +1518,19 @@ function clampView(){
   if(N===0)return;
   var span=VIEW.end-VIEW.start;
   if(span<MIN_BARS)span=MIN_BARS;
-  VIEW.end=Math.min(VIEW.end, N + (gAnalysis?gAnalysis.pred.c24:0));
+  if(_streamingCandles){
+    // Streaming: only clamp boundaries, never recalculate
+    if(VIEW.start<0){VIEW.start=0;VIEW.end=Math.max(span,MIN_BARS);}
+    return;
+  }
+  VIEW.end=Math.min(VIEW.end,N+(gAnalysis?gAnalysis.pred.c24:0));
   VIEW.start=VIEW.end-span;
   if(VIEW.start<0){VIEW.start=0;VIEW.end=Math.max(MIN_BARS,span);}
 }
 
 function onWheel(e){
   _userInteracted=true;
+  _streamStart=-1; _streamEnd=-1; // release stream lock on user interaction
   e.preventDefault();
   if(gCandles.length===0)return;
   var N=gCandles.length;
@@ -1532,6 +1549,8 @@ function onWheel(e){
   redraw();
 }
 function onMouseDown(e){
+  _userInteracted=true;
+  _streamStart=-1; _streamEnd=-1; // release lock on drag
   VIEW.dragging=true;
   VIEW.dragStartX=e.clientX;
   VIEW.dragStartViewStart=VIEW.start;
@@ -1648,7 +1667,13 @@ function drawCrosshair(e){
   if(span<=0)return;
   var cw=(W-PAD.l-PAD.r)/span;
   var barIdx=Math.floor(VIEW.start+(mx-PAD.l)/cw);
-  if(barIdx<0||barIdx>=gCandles.length){clearOverlay();return;}
+  // Hide everything if outside chart bounds
+  if(barIdx<0||barIdx>=gCandles.length){
+    clearOverlay();
+    var tip2=document.getElementById('xhair-tooltip');
+    if(tip2) tip2.style.display='none';
+    return;
+  }
   _xhairIdx=barIdx;
   var c=gCandles[barIdx];if(!c)return;
   var vr=getViewPriceRange(),minP=vr.min,maxP=vr.max;
@@ -1690,6 +1715,9 @@ function drawCrosshair(e){
   clearTimeout(_xhairStopTimer);
   _xhairStopTimer=setTimeout(function(){
     if(!tip||_xhairIdx<0)return;
+    // Only show tooltip if mouse is within K-line price area
+    var inPriceArea = my>=PAD.t && my<=(H-PAD.b) && mx>=PAD.l && mx<(W-PAD.r);
+    if(!inPriceArea) return;
     var cc=gCandles[_xhairIdx];if(!cc)return;
     var dp2=cc.close>1000?2:4;
     var chg=cc.open?(cc.close-cc.open)/cc.open*100:0;
@@ -1753,6 +1781,7 @@ function drawMain(){
   var a=gAnalysis,ind=a.ind,pred=a.pred;
   var N=gCandles.length;
   var PAD={l:8,r:70,t:14,b:22};
+
   var span=VIEW.end-VIEW.start;
   var cw=(W-PAD.l-PAD.r)/span;
   var bw=Math.max(1,cw*0.65);
@@ -1996,6 +2025,7 @@ function drawMacd(){
 
 var _isRedrawing = false;
 function redraw(){
+  if(_streamingCandles) return; // freeze during stream
   drawMain();drawVolume(gCandles);drawRsi();drawMacd();
   if(_lastMouseEvent)drawCrosshair(_lastMouseEvent);
 }
@@ -2211,13 +2241,12 @@ function loadData(forceRemote){
 function finishLoad(stats,lsData,fgData,frData,mtfRes,obRes){
   _mtfData = mtfRes;
   try { gAnalysis = analyze(gCandles); } catch(e) { log('analyze失敗:'+e.message,'err'); return; }
-  // Set view if not set yet
-  if(VIEW.start===0||VIEW.end===0){
+  // Set view only on first load
+  if(VIEW.start===0&&VIEW.end===0){
     VIEW.start = Math.max(0, gCandles.length-80);
     VIEW.end   = gCandles.length + (gAnalysis.pred?gAnalysis.pred.c24:5);
-  } else {
-    VIEW.end = gCandles.length + (gAnalysis.pred?gAnalysis.pred.c24:5);
   }
+  // Never touch VIEW after first set - streaming/user manages it
   // Update header price
   if(stats&&parseFloat(stats.last)>0){
     var price=parseFloat(stats.last), open24=parseFloat(stats.open);
@@ -2229,7 +2258,8 @@ function finishLoad(stats,lsData,fgData,frData,mtfRes,obRes){
     if(chgEl){chgEl.textContent=(chg>=0?'+':'')+chg.toFixed(2)+'%';chgEl.className=chg>=0?'up':'dn';}
   }
   // Draw everything once
-  redraw();
+  // Direct draw (bypasses _streamingCandles check in redraw())
+  drawMain();drawVolume(gCandles);drawRsi();drawMacd();
   drawGauge(gAnalysis.composite);
   drawPred(gAnalysis);
   drawSignals(gAnalysis.signals);
